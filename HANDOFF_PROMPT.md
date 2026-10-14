@@ -30,3 +30,15 @@ py -3.12 -m venv .venv
 ```
 
 仓库不包含生产数据库、服务器密钥或 Coze 登录态。这些必须在新电脑上通过安全渠道重新配置，不得从聊天记录复制已暴露的旧 Key。
+
+若 GitHub 尚未完成首次推送，将本机仓库根目录的 `historyguide-20261014.bundle` 通过可信介质带到新电脑，先验证再克隆：
+
+```powershell
+git bundle verify .\historyguide-20261014.bundle
+git clone .\historyguide-20261014.bundle huawei
+cd .\huawei
+git remote set-url origin https://github.com/nanyan831/huawei.git
+git log -1 --oneline
+```
+
+Bundle 仅是源码提交历史，不含 `.gitignore` 排除的运行密钥、数据库及压缩包。若本机后续又产生新提交，须重新生成 bundle；不要把旧 bundle 当作最新状态。
