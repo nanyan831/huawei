@@ -20,6 +20,7 @@
 *.zip
 *.tar
 *.docx
+*.bundle
 
 # Editor and operating-system state
 .DS_Store
