@@ -1,5 +1,7 @@
 # Local runtime and secrets
 **/.venv/
+**/.local/
+**/node_modules/
 **/__pycache__/
 **/.pytest_cache/
 **/.mypy_cache/
@@ -10,6 +12,7 @@
 !**/.env.example
 **/.tmp*
 **/*.db
+**/*.db-*
 **/*.sqlite
 **/*.sqlite3
 **/*.pem

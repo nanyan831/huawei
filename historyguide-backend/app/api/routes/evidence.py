@@ -1,21 +1,29 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from secrets import compare_digest
 from typing import Literal
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.security import OPERATOR_API_KEY_HEADER, access_key_matches
 from app.database.session import get_db
-from app.core.security import OPERATOR_API_KEY_HEADER
-from app.models.evidence import EvidenceSource
+from app.models.evidence import EvidenceSource, ExhibitApproval, ExhibitEvidenceLink
+from app.models.exhibit import Exhibit
 from app.schemas.evidence import (
     EvidenceLinkRead,
     EvidenceSourceCreate,
     EvidenceSourceBatchCreate,
     EvidenceSourceBatchRead,
+    EvidenceSourceBatchPreview,
     EvidenceSourcePage,
     EvidenceSourceRead,
     ExhibitApprovalRead,
     ReviewerAction,
+    EvidenceExhibitBatchCreate,
+    EvidenceExhibitBatchRead,
+    EvidenceExhibitRead,
+    EvidenceExhibitPage,
 )
+from app.schemas.exhibit import ExhibitRead
 from app.schemas.review_run import ReviewRunStats
 from app.services.evidence_service import (
     approve_exhibit,
@@ -26,7 +34,10 @@ from app.services.evidence_service import (
     link_source,
     revoke_exhibit,
     revoke_source,
+    validate_sources_batch,
+    exhibit_approval_issue,
 )
+from app.services.exhibit_import_service import import_exhibit_batch, validate_exhibit_batch
 from app.services.review_run_stats_service import get_review_run_stats
 
 
@@ -40,7 +51,7 @@ def require_evidence_operator(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Evidence operations require a configured operator API key.",
         )
-    if operator_key is None or not compare_digest(operator_key, configured_key):
+    if not access_key_matches(operator_key, configured_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Valid HistoryGuide operator API key is required.",
@@ -79,6 +90,14 @@ def add_evidence_sources_batch(
     return EvidenceSourceBatchRead(imported_count=len(sources), items=sources)
 
 
+@router.post("/sources/batch/preview", response_model=EvidenceSourceBatchPreview)
+def preview_evidence_sources(
+    payload: EvidenceSourceBatchCreate, db: Session = Depends(get_db)
+) -> EvidenceSourceBatchPreview:
+    items = _call(validate_sources_batch, db, payload.sources)
+    return EvidenceSourceBatchPreview(count=len(items), items=items)
+
+
 @router.get("/sources", response_model=EvidenceSourcePage)
 def read_evidence_sources(
     status_filter: Literal["draft", "approved", "revoked"] | None = Query(default=None, alias="status"),
@@ -110,6 +129,57 @@ def revoke_evidence_source(
     source_id: str, payload: ReviewerAction, db: Session = Depends(get_db)
 ) -> EvidenceSourceRead:
     return _call(revoke_source, db, source_id, reviewer=payload.reviewer)
+
+
+@router.post("/exhibits/batch/preview", response_model=EvidenceExhibitBatchRead)
+def preview_evidence_exhibits(
+    payload: EvidenceExhibitBatchCreate, db: Session = Depends(get_db)
+) -> EvidenceExhibitBatchRead:
+    _call(validate_exhibit_batch, db, payload.exhibits)
+    return EvidenceExhibitBatchRead(count=len(payload.exhibits), items=payload.exhibits)
+
+
+@router.post("/exhibits/batch", response_model=EvidenceExhibitBatchRead, status_code=201)
+def add_evidence_exhibits(
+    payload: EvidenceExhibitBatchCreate, db: Session = Depends(get_db)
+) -> EvidenceExhibitBatchRead:
+    records = _call(import_exhibit_batch, db, payload.exhibits)
+    return EvidenceExhibitBatchRead(count=len(records), items=records)
+
+
+def _exhibit_detail(db: Session, exhibit: Exhibit) -> EvidenceExhibitRead:
+    return EvidenceExhibitRead(
+        exhibit=ExhibitRead.model_validate(exhibit),
+        approval=db.get(ExhibitApproval, exhibit.id),
+        source_ids=list(db.scalars(
+            select(ExhibitEvidenceLink.source_id)
+            .where(ExhibitEvidenceLink.exhibit_id == exhibit.id)
+            .order_by(ExhibitEvidenceLink.source_id)
+        )),
+        approval_issue=exhibit_approval_issue(db, exhibit),
+    )
+
+
+@router.get("/exhibits", response_model=EvidenceExhibitPage)
+def read_evidence_exhibits(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> EvidenceExhibitPage:
+    total = db.scalar(select(func.count()).select_from(Exhibit)) or 0
+    exhibits = db.scalars(select(Exhibit).order_by(Exhibit.id).offset(offset).limit(limit))
+    return EvidenceExhibitPage(
+        items=[_exhibit_detail(db, exhibit) for exhibit in exhibits],
+        total=total, offset=offset, limit=limit,
+    )
+
+
+@router.get("/exhibits/{exhibit_id}", response_model=EvidenceExhibitRead)
+def read_evidence_exhibit(exhibit_id: str, db: Session = Depends(get_db)) -> EvidenceExhibitRead:
+    exhibit = db.get(Exhibit, exhibit_id)
+    if exhibit is None:
+        raise HTTPException(status_code=404, detail="Exhibit was not found.")
+    return _exhibit_detail(db, exhibit)
 
 
 @router.post("/exhibits/{exhibit_id}/sources/{source_id}", response_model=EvidenceLinkRead)

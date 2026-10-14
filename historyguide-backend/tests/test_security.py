@@ -255,3 +255,30 @@ def test_operator_key_does_not_replace_business_api_key_for_business_endpoints(m
         headers={API_KEY_HEADER: "business-secret"},
     )
     assert business_key_response.status_code == 200
+
+
+def test_access_keys_are_scoped_to_each_application(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module, "settings",
+        Settings(api_key="business-first", operator_api_key="operator-first"),
+    )
+    first_app = main_module.create_app()
+    monkeypatch.setattr(
+        main_module, "settings",
+        Settings(api_key="business-second", operator_api_key="operator-second"),
+    )
+    second_app = main_module.create_app()
+    with TestClient(first_app) as first, TestClient(second_app) as second:
+        for client, own, other in ((first, "first", "second"), (second, "second", "first")):
+            assert client.get(
+                "/api/genios/capabilities", headers={API_KEY_HEADER: f"business-{own}"},
+            ).status_code == 200
+            assert client.get(
+                "/api/genios/capabilities", headers={API_KEY_HEADER: f"business-{other}"},
+            ).status_code == 401
+            assert client.get(
+                "/api/audit-logs", headers={OPERATOR_API_KEY_HEADER: f"operator-{own}"},
+            ).status_code == 200
+            assert client.get(
+                "/api/audit-logs", headers={OPERATOR_API_KEY_HEADER: f"operator-{other}"},
+            ).status_code == 401

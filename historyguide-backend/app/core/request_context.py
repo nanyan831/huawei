@@ -22,6 +22,9 @@ async def attach_request_context(request: Request, call_next: Callable[[Request]
 
     elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
     response.headers[REQUEST_ID_HEADER] = request_id
+    if request.url.path.startswith("/api/evidence"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
     _logger.info(
         "request completed request_id=%s method=%s path=%s status_code=%s elapsed_ms=%s",
         request_id,

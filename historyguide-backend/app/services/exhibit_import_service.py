@@ -2,11 +2,13 @@ import json
 from pathlib import Path
 
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.schemas.exhibit import ExhibitCreate
 from app.services.audit_log_service import record_audit_log
-from app.services.exhibit_service import create_exhibits, get_exhibit
+from app.models.exhibit import Exhibit
+from app.services.exhibit_service import get_exhibit
 
 
 class ExhibitImportError(ValueError):
@@ -38,21 +40,44 @@ def load_exhibit_seed_file(path: Path) -> list[ExhibitCreate]:
 
 def import_exhibits_from_file(db: Session, path: Path) -> int:
     exhibits = validate_exhibits_for_import(db, path)
-    create_exhibits(db, exhibits)
-    record_audit_log(
-        db,
-        action="exhibits_imported",
-        resource_type="exhibit_import",
-        resource_id=path.name,
-        actor="import_cli",
-        details={
-            "path": str(path),
-            "imported_count": len(exhibits),
-            "exhibit_ids": [exhibit.id for exhibit in exhibits],
-        },
-        commit=True,
+    import_exhibit_batch(
+        db, exhibits, actor="import_cli", resource_id=path.name,
+        details={"path": str(path)},
     )
     return len(exhibits)
+
+
+def validate_exhibit_batch(db: Session, exhibits: list[ExhibitCreate]) -> None:
+    _validate_unique_ids(exhibits)
+    _validate_source_references(exhibits)
+    _validate_no_existing_ids(db, exhibits)
+
+
+def import_exhibit_batch(
+    db: Session, exhibits: list[ExhibitCreate], *, actor: str = "operator",
+    resource_id: str = "operator_batch", details: dict | None = None,
+) -> list[Exhibit]:
+    """Import unapproved exhibits and their audit evidence in one transaction."""
+    validate_exhibit_batch(db, exhibits)
+    records = [Exhibit(**exhibit.model_dump()) for exhibit in exhibits]
+    try:
+        db.add_all(records)
+        record_audit_log(
+            db, action="exhibits_imported", resource_type="exhibit_import",
+            resource_id=resource_id, actor=actor,
+            details={
+                **(details or {}), "imported_count": len(exhibits),
+                "exhibit_ids": [exhibit.id for exhibit in exhibits],
+            },
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ExhibitImportError("Exhibit ids changed during import; retry with new ids.") from exc
+    except Exception:
+        db.rollback()
+        raise
+    return records
 
 
 def validate_exhibits_for_import(db: Session, path: Path) -> list[ExhibitCreate]:

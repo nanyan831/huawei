@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>馆员工作台 · NK HistoryGuide</title>
+  <link rel="stylesheet" href="/operator/styles.css">
+  <script src="/operator/app.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="/operator"><span class="brand-mark" aria-hidden="true">NK</span><span>HISTORYGUIDE<small>南开校史 · 资料治理</small></span></a>
+    <div class="connection"><span id="connection-state">尚未连接</span><button id="disconnect" class="quiet" type="button" hidden>退出工作台</button></div>
+  </header>
+  <main>
+    <section class="intro"><p class="eyebrow">CURATOR WORKSPACE</p><h1>让每一次讲解，都有据可查。</h1><p>从原始资料到正式讲解，逐条核对来源，保留每次审批记录。</p></section>
+    <section id="login-panel" class="card login-card" aria-labelledby="login-title">
+      <div><span class="step">01 / 安全连接</span><h2 id="login-title">进入馆员工作台</h2><p class="muted">使用独立的操作员密钥。密钥仅保留在当前页面内存，刷新或退出后清除。</p></div>
+      <form id="login-form">
+        <label for="operator-key">操作员密钥</label><input id="operator-key" name="operator-key" type="password" required autocomplete="off" placeholder="输入操作员密钥">
+        <label for="reviewer">审核人姓名</label><input id="reviewer" name="reviewer" required maxlength="80" autocomplete="off" placeholder="填写本次审核的实际负责人">
+        <p class="muted small">审核人姓名用于操作记录。请按馆方制度核实审核身份。</p>
+        <button type="submit" class="primary">连接工作台 <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+    <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+    <section id="workspace" hidden>
+      <div class="metrics" aria-label="资料概况"><article class="metric"><span>待审核来源</span><strong id="draft-count">—</strong><small>核对出处后逐条审批</small></article><article class="metric"><span>已批准来源</span><strong id="approved-count">—</strong><small>撤销会使相关审核失效</small></article><article class="metric"><span>展品记录</span><strong id="exhibit-count">—</strong><small>导入后仍需关联来源与审批</small></article></div>
+      <nav class="tabs" aria-label="工作台功能"><button type="button" class="tab active" data-tab="sources" aria-current="page">来源审核</button><button type="button" class="tab" data-tab="exhibits">展品治理</button><button type="button" class="tab" data-tab="audit">操作记录</button></nav>
+      <div class="workspace-grid">
+        <section id="intake-panel" class="card" aria-labelledby="intake-title">
+          <span class="step">01 / 导入准备</span><h2 id="intake-title">整理一批新资料</h2><p class="muted">先预览，再导入。每批最多 20 条，重复 ID 会使整批失败。</p>
+          <label for="batch-kind">资料类型</label><select id="batch-kind"><option value="sources">来源原文</option><option value="exhibits">展品记录</option></select>
+          <label for="batch-file" class="file-label">选择 JSON 文件 <small>UTF-8 · 最大 8 MiB</small></label><input id="batch-file" type="file" accept=".json,application/json">
+          <label for="batch-json">或粘贴 JSON 内容</label><textarea id="batch-json" rows="12" spellcheck="false" placeholder="选择文件或粘贴资料；支持 JSON 数组及带 sources / exhibits 字段的对象。"></textarea>
+          <details class="format-guide"><summary>查看导入格式</summary><pre id="format-example"></pre><p class="muted small">示意格式用于说明字段。请替换为已核对的原文，清洗候选资料需人工整理。</p></details>
+          <button id="preview-batch" type="button" class="secondary wide">校验并预览</button>
+          <section id="preview-panel" class="preview" hidden aria-label="导入预览"><h3>预览通过</h3><div id="preview-items"></div><label class="check"><input id="intake-confirm" type="checkbox"><span>已逐条核对原始出处；此次仅导入待审批记录。</span></label><button id="import-batch" type="button" class="primary wide" disabled>确认导入</button></section>
+        </section>
+        <section class="card records" aria-labelledby="records-title">
+          <div class="section-heading"><div><span class="step">02 / 核对与审批</span><h2 id="records-title">来源资料</h2></div><button id="refresh" type="button" class="secondary">刷新</button></div>
+          <div id="source-filters" class="filters"><label for="status-filter">审核状态</label><select id="status-filter"><option value="draft">待审核</option><option value="approved">已批准</option><option value="revoked">已撤销</option><option value="">全部来源</option></select></div>
+          <div class="table-scroll"><table><thead id="records-head"></thead><tbody id="records-body"></tbody></table></div>
+          <div class="pagination"><span id="page-status">尚未载入</span><div><button id="previous" type="button" class="quiet" disabled>上一页</button><button id="next" type="button" class="quiet" disabled>下一页</button></div></div>
+          <p id="records-note" class="muted small">导入草稿不会自动批准，也不会同步到 Coze 知识库。</p>
+        </section>
+      </div>
+    </section>
+    <footer><span>NK HistoryGuide · 馆员工作台</span><span>原文核对 → 来源审批 → 展品关联 → 展品审批</span></footer>
+  </main>
+  <dialog id="detail-dialog" aria-labelledby="detail-title">
+    <div class="dialog-heading"><span class="step">资料核对</span><button id="close-detail" type="button" class="quiet" aria-label="关闭详情">关闭 ×</button></div>
+    <h2 id="detail-title"></h2><div id="detail-meta" class="detail-meta"></div><pre id="detail-content" class="source-text"></pre>
+    <p id="detail-notice" class="notice" role="status" aria-live="polite" hidden></p>
+    <form id="link-form" hidden><label for="link-source-id">关联已有来源 ID</label><div class="inline-form"><input id="link-source-id" required maxlength="64" placeholder="如 S01"><button type="submit" class="secondary">关联来源</button></div><p class="muted small">请先核对来源正文与展品的对应关系。展品审批要求所有关联来源均已批准。</p></form>
+    <label class="check"><input id="review-confirm" type="checkbox"><span>已核对原始出处、摘录与展品对应关系，由本人记录此次审批或撤销。</span></label>
+    <div class="dialog-actions"><span id="reviewer-label" class="muted small"></span><div><button id="revoke-record" type="button" class="danger" disabled>撤销批准</button><button id="approve-record" type="button" class="primary" disabled>批准资料</button></div></div>
+  </dialog>
+</body>
+</html>

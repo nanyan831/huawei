@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from secrets import compare_digest
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +13,7 @@ from app.api.routes.genios_history_openapi import router as genios_history_opena
 from app.api.routes.genios_openapi import router as genios_openapi_router
 from app.api.routes.genios_runs_openapi import router as genios_runs_openapi_router
 from app.api.routes.health import router as health_router
+from app.api.routes.operator_ui import router as operator_ui_router
 from app.api.routes.history_review_runs import router as history_review_runs_router
 from app.api.routes.recommendations import router as recommendations_router
 from app.api.routes.review_runs import router as review_runs_router
@@ -21,12 +21,14 @@ from app.api.routes.route_plans import router as route_plans_router
 from app.api.routes.visit_summaries import router as visit_summaries_router
 from app.api.routes.visitor_states import router as visitor_states_router
 from app.core.config import settings
+from app.core.evidence_body_limit import EvidenceBodyLimitMiddleware
 from app.core.logging import configure_logging
 from app.core.request_context import attach_request_context
 from app.core.security import (
     API_KEY_HEADER,
     OPERATOR_API_KEY_HEADER,
     PUBLIC_PATHS,
+    access_key_matches,
     is_operator_path,
 )
 from app.database.init_db import init_db
@@ -45,6 +47,7 @@ def create_app() -> FastAPI:
         ),
     )
     app.state.settings = settings
+    app.add_middleware(EvidenceBodyLimitMiddleware)
     if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -60,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(audit_logs_router)
     app.include_router(evidence_router)
+    app.include_router(operator_ui_router)
     app.include_router(exhibits_router)
     app.include_router(visitor_states_router)
     app.include_router(recommendations_router)
@@ -75,12 +79,20 @@ def create_app() -> FastAPI:
 
 
 async def require_access_keys(request: Request, call_next: Callable[[Request], Response]) -> Response:
+    settings = request.app.state.settings
     if request.method == "OPTIONS" or request.url.path in PUBLIC_PATHS:
         return await call_next(request)
 
+    evidence_path = request.url.path == "/api/evidence" or request.url.path.startswith("/api/evidence/")
+    if evidence_path and not settings.operator_api_key:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Evidence operations require a configured operator API key."},
+        )
+
     if settings.operator_api_key and is_operator_path(request.url.path):
         operator_key = request.headers.get(OPERATOR_API_KEY_HEADER)
-        if operator_key is None or not compare_digest(operator_key, settings.operator_api_key):
+        if not access_key_matches(operator_key, settings.operator_api_key):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Valid HistoryGuide operator API key is required."},
@@ -91,7 +103,7 @@ async def require_access_keys(request: Request, call_next: Callable[[Request], R
     provided_key = request.headers.get(API_KEY_HEADER)
     if accepted_business_keys and (
         provided_key is None
-        or not any(compare_digest(provided_key, key) for key in accepted_business_keys)
+        or not any(access_key_matches(provided_key, key) for key in accepted_business_keys)
     ):
         return JSONResponse(
             status_code=401,

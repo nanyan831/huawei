@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.evidence import EvidenceSource, ExhibitApproval, ExhibitEvidenceLink
 from app.models.exhibit import Exhibit
-from app.schemas.evidence import EvidenceSourceCreate
+from app.schemas.evidence import EvidenceSourceCreate, EvidenceSourcePreview
 from app.services.audit_log_service import record_audit_log
 
 
@@ -25,12 +25,16 @@ def create_source(
         content_sha256=hashlib.sha256(content_text.encode("utf-8")).hexdigest(),
         status="draft",
     )
-    db.add(source)
-    record_audit_log(
-        db, action="evidence_source_created", resource_type="evidence_source",
-        resource_id=source_id, actor="operator", details={"content_sha256": source.content_sha256},
-    )
-    db.commit()
+    try:
+        db.add(source)
+        record_audit_log(
+            db, action="evidence_source_created", resource_type="evidence_source",
+            resource_id=source_id, actor="operator", details={"content_sha256": source.content_sha256},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(source)
     return source
 
@@ -38,37 +42,57 @@ def create_source(
 def create_sources_batch(
     db: Session, sources: list[EvidenceSourceCreate]
 ) -> list[EvidenceSource]:
+    validate_sources_batch(db, sources)
+    created: list[EvidenceSource] = []
+    try:
+        for item in sources:
+            source = EvidenceSource(
+                id=item.id,
+                title=item.title,
+                source_uri=item.source_uri,
+                content_text=item.content_text,
+                content_sha256=hashlib.sha256(item.content_text.encode("utf-8")).hexdigest(),
+                status="draft",
+            )
+            created.append(source)
+            db.add(source)
+            record_audit_log(
+                db,
+                action="evidence_source_created",
+                resource_type="evidence_source",
+                resource_id=item.id,
+                actor="operator",
+                details={"content_sha256": source.content_sha256, "import_mode": "batch_draft"},
+            )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ValueError("Evidence source ids changed during import; retry with new ids.") from exc
+    except Exception:
+        db.rollback()
+        raise
+    return created
+
+
+def validate_sources_batch(
+    db: Session, sources: list[EvidenceSourceCreate]
+) -> list[EvidenceSourcePreview]:
+    """Validate a batch without storing records or audit events."""
     ids = [source.id for source in sources]
     if len(ids) != len(set(ids)):
         raise ValueError("Duplicate evidence source ids in batch.")
     if any(db.get(EvidenceSource, source_id) is not None for source_id in ids):
         raise ValueError("At least one evidence source id already exists.")
-    created: list[EvidenceSource] = []
-    for item in sources:
-        source = EvidenceSource(
+    return [
+        EvidenceSourcePreview(
             id=item.id,
             title=item.title,
             source_uri=item.source_uri,
-            content_text=item.content_text,
             content_sha256=hashlib.sha256(item.content_text.encode("utf-8")).hexdigest(),
-            status="draft",
+            content_length=len(item.content_text),
         )
-        created.append(source)
-        db.add(source)
-        record_audit_log(
-            db,
-            action="evidence_source_created",
-            resource_type="evidence_source",
-            resource_id=item.id,
-            actor="operator",
-            details={"content_sha256": source.content_sha256, "import_mode": "batch_draft"},
-        )
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise ValueError("Evidence source ids changed during import; retry with new ids.") from exc
-    return created
+        for item in sources
+    ]
 
 
 def list_sources(
@@ -93,15 +117,19 @@ def approve_source(db: Session, source_id: str, *, reviewer: str) -> EvidenceSou
         raise ValueError("Revoked evidence cannot be approved again; create a new version.")
     if not _content_hash_matches(source):
         raise ValueError("Evidence content changed after its hash was recorded; create a new version.")
-    source.status = "approved"
-    source.reviewed_by = reviewer
-    source.reviewed_at = datetime.now(timezone.utc)
-    record_audit_log(
-        db, action="evidence_source_approved", resource_type="evidence_source",
-        resource_id=source_id, actor=reviewer,
-        details={"content_sha256": source.content_sha256},
-    )
-    db.commit()
+    try:
+        source.status = "approved"
+        source.reviewed_by = reviewer
+        source.reviewed_at = datetime.now(timezone.utc)
+        record_audit_log(
+            db, action="evidence_source_approved", resource_type="evidence_source",
+            resource_id=source_id, actor=reviewer,
+            details={"content_sha256": source.content_sha256},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(source)
     return source
 
@@ -110,14 +138,18 @@ def revoke_source(db: Session, source_id: str, *, reviewer: str) -> EvidenceSour
     source = db.get(EvidenceSource, source_id)
     if source is None:
         raise LookupError(f"Evidence source '{source_id}' was not found.")
-    source.status = "revoked"
-    source.reviewed_by = reviewer
-    source.reviewed_at = datetime.now(timezone.utc)
-    record_audit_log(
-        db, action="evidence_source_revoked", resource_type="evidence_source",
-        resource_id=source_id, actor=reviewer,
-    )
-    db.commit()
+    try:
+        source.status = "revoked"
+        source.reviewed_by = reviewer
+        source.reviewed_at = datetime.now(timezone.utc)
+        record_audit_log(
+            db, action="evidence_source_revoked", resource_type="evidence_source",
+            resource_id=source_id, actor=reviewer,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(source)
     return source
 
@@ -130,12 +162,16 @@ def link_source(db: Session, exhibit_id: str, source_id: str) -> ExhibitEvidence
     link = db.get(ExhibitEvidenceLink, (exhibit_id, source_id))
     if link is None:
         link = ExhibitEvidenceLink(exhibit_id=exhibit_id, source_id=source_id)
-        db.add(link)
-        record_audit_log(
-            db, action="exhibit_evidence_linked", resource_type="exhibit",
-            resource_id=exhibit_id, actor="operator", details={"source_id": source_id},
-        )
-        db.commit()
+        try:
+            db.add(link)
+            record_audit_log(
+                db, action="exhibit_evidence_linked", resource_type="exhibit",
+                resource_id=exhibit_id, actor="operator", details={"source_id": source_id},
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
     return link
 
 
@@ -157,17 +193,21 @@ def approve_exhibit(db: Session, exhibit_id: str, *, reviewer: str) -> ExhibitAp
     if approval is None:
         approval = ExhibitApproval(exhibit_id=exhibit_id)
         db.add(approval)
-    approval.status = "approved"
-    approval.display_status = "on_display"
-    approval.approved_fingerprint = _fingerprint(exhibit, sources)
-    approval.reviewed_by = reviewer
-    approval.reviewed_at = datetime.now(timezone.utc)
-    record_audit_log(
-        db, action="exhibit_approved", resource_type="exhibit",
-        resource_id=exhibit_id, actor=reviewer,
-        details={"fingerprint": approval.approved_fingerprint},
-    )
-    db.commit()
+    try:
+        approval.status = "approved"
+        approval.display_status = "on_display"
+        approval.approved_fingerprint = _fingerprint(exhibit, sources)
+        approval.reviewed_by = reviewer
+        approval.reviewed_at = datetime.now(timezone.utc)
+        record_audit_log(
+            db, action="exhibit_approved", resource_type="exhibit",
+            resource_id=exhibit_id, actor=reviewer,
+            details={"fingerprint": approval.approved_fingerprint},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(approval)
     return approval
 
@@ -176,14 +216,18 @@ def revoke_exhibit(db: Session, exhibit_id: str, *, reviewer: str) -> ExhibitApp
     approval = db.get(ExhibitApproval, exhibit_id)
     if approval is None:
         raise LookupError(f"Exhibit approval for '{exhibit_id}' was not found.")
-    approval.status = "revoked"
-    approval.reviewed_by = reviewer
-    approval.reviewed_at = datetime.now(timezone.utc)
-    record_audit_log(
-        db, action="exhibit_approval_revoked", resource_type="exhibit",
-        resource_id=exhibit_id, actor=reviewer,
-    )
-    db.commit()
+    try:
+        approval.status = "revoked"
+        approval.reviewed_by = reviewer
+        approval.reviewed_at = datetime.now(timezone.utc)
+        record_audit_log(
+            db, action="exhibit_approval_revoked", resource_type="exhibit",
+            resource_id=exhibit_id, actor=reviewer,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(approval)
     return approval
 

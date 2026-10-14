@@ -420,3 +420,42 @@
 - 新增 `PROJECT_ROADMAP.md`：基于 ReAct、单/多 Agent 对照、Self-RAG/CRAG、RAG 事实忠实度、AgentDojo 与可靠性评测论文，列出馆方来源、强制审核出口、语义核验、真实评测、部署和馆员入口的完成门禁。结论是先建立单 Agent + 确定性门禁基线，不把第二个 LLM Agent 视为天然更安全。
 - 新增 `HANDOFF_PROMPT.md` 供另一台电脑克隆接管，含独立环境测试、状态审计、保密边界及离线 bundle 路径。`historyguide-20261014.bundle` 已按 `main` 单分支重建并通过 `git bundle verify`；它是本机备用文件，不在 GitHub 仓库中。
 - 本轮后端 221 项本地测试通过。GitHub 上云不代表 Coze 新工作流、馆方资料或生产部署完成；下一步仍是取得审定来源、Coze 可操作权限与正式发布授权后逐门禁验收。
+
+## Step 26：Windows 克隆接管与四路协同盘点
+
+日期：2026-10-14
+
+状态：克隆与项目阅读已完成；本轮修改仍在本地，发布门禁维持 NO-GO
+
+- 按用户要求从 `https://github.com/nanyan831/huawei.git` 接管到 `D:\华为杯\huawei`。主线程核对克隆 HEAD 与当时远端 `main` 均为 `d2be561b5f90cdd2839434746a2f7fbfb5dc1bbc`；这与 Step 25 首次推送的历史 SHA 不同，不能把旧 SHA 当最新状态。
+- 阅读实际文件 `HANDOFF_PROMPT.md`、路线、架构、历史 staging/现网盘点、上下文最近步骤及后端入口。项目仍为单讲解 Agent + 确定性后端审核，不存在本轮已验证的第二个 LLM Agent。
+- 按用户要求四路协同：主线程负责环境/依赖和整合，后端代理负责接口及测试，前端代理负责馆员页面/浏览器/启动脚本，文档代理负责路线、交接和实测记录。所有人共享工作目录，按文件边界修改，整合时由主线程核对。
+- 本机 `.venv` 为 Python 3.12.13；UV 解压与官方 pip 下载曾失败，清华镜像安装成功。主线程实测 `pip check` 通过、Alembic head 为 `0005_history_review_runs`。镜像安装不是上游供应链独立验证。
+- 本机有 Docker CLI 但 daemon 未启动，未完成本轮镜像构建。Steps 23–24 的服务器/container 证据为历史记录，本轮没有再次访问生产库、检查 Coze 登录态或执行轮换/上线。
+- 本阶段证据汇总见 `historyguide-backend/docs/local_validation_2026-10-14.md`；本轮 HEAD/远端一致性、最终回归、真实资料、平台接线、备份恢复及发布验收仍未完成。
+
+## Step 27：本地馆员工作台与批量治理完善
+
+日期：2026-10-14
+
+状态：本地功能已实现；整合回归进行中，尚未部署或取得馆员签收
+
+- 新增同源中文 `/operator` 页面，复用操作员证据和审计接口；支持来源与展品 JSON 文件/粘贴、只读预览、确认导入、详情核对、来源批准/撤销、展品来源关联/批准/撤销及审计查看。
+- 来源和展品每批最多 20 条，额外伪造审批字段和空白内容被拒绝；预览不写库、不占用 ID，提交重查冲突。导入数据与审计同事务，冲突或审计插入失败整批回滚；CLI 展品导入复用事务逻辑。
+- 证据 API 使用独立操作员密钥，错误/缺失密钥失败关闭；页面壳和明确静态资源公开但无资料或密钥。服务端在 JSON 解析前限制 8 MiB 请求体，含无 Content-Length 流式请求。
+- 本地启动脚本监听回环地址，隐藏输入新操作员 Key，使用独立 `.local/workspace.db`；已有库须满足迁移门禁。页面不持久化 Key、原文以文本呈现、原始出处仅 HTTP/HTTPS 可点击。操作员姓名是审计字段，不能当身份认证或馆方签字。
+- 首轮 Python 回归 241 项中 3 项失败，原因为将全局数据库配置设为 `:memory:` 与持久化检查、跨线程连接不兼容；首轮浏览器 9 项业务检查完成，但 Windows 清理测试库发生 `EBUSY`，整体退出码 1。随后脱敏 `browser-check.json` 记录 13 项浏览器业务/安全/竞态检查、`pageErrors=[]`，包含 320px 无横向溢出；仍须以主线程最终命令退出码和启动脚本证据整合为准，不能抹去首轮失败。
+- 操作流程见 `historyguide-backend/docs/operator_workspace.md` 与 `historyguide-backend/docs/evidence_intake.md`，最终结果应续写本机验证记录。未导入清洗候选为批准来源，也未把 fixture 或 `semantic_verified=false` 当事实通过。
+- 尚未完成：本轮整合最终回归、依赖锁和镜像构建证据；馆方审定原文/真实展品/Coze ID 映射、馆员签收、真实强制 finalize 轨迹和语义支持评测、生产轮换/备份/恢复/发布仍需独立验收。
+
+## Step 28：四路协同收尾与本机最终回归
+
+日期：2026-10-14
+
+状态：本地工程回归完成；发布门禁仍为 NO-GO
+
+- 主线程完成四路协同整合：后端代理复核操作员密钥与业务密钥隔离、多应用实例鉴权隔离、批量来源/展品及审计事务回滚、单条来源/展品治理操作的审计异常回滚、审核人长度校验；前端代理复核馆员工作台浏览器竞态、401/登出清理、320px/390px 响应式布局；文档工作由主线程合并到本记录和本机验证记录。
+- `.venv\\Scripts\\python.exe -m pytest -o addopts= -q` 退出码 0，`263 passed, 1 warning`。警告为第三方 Starlette/httpx 测试客户端弃用提示。`npm.cmd --prefix tests/browser test` 退出码 0，13/13 检查通过，`pageErrors=[]`；`node --check app/static/operator/app.js` 与 `git diff --check` 均退出码 0。
+- 依赖开发锁在 Windows Python 3.12.13 独立环境以 `uv pip install --require-hashes` 安装通过，`pip check` 通过；Alembic head 为 `0005_history_review_runs`。本机 Docker daemon 未启动，因此没有新增镜像构建、摘要、容器回归或生产迁移证据。
+- 本轮未读取、输出或提交旧业务密钥；未把 fixture、清洗候选资料或测试知识库当作馆方批准资料。新增工作台只提供本地待审批流程，审核人字段不构成身份认证。
+- 仍缺馆方签字来源与真实展品 ID、Coze 可编辑登录态和新插件真实轨迹、按句语义支持验收、线上密钥轮换、生产备份/恢复/回滚/迁移、馆员试用签收及发布授权。上述门禁未满足前，不得把本地绿灯宣布为上线或馆方验收。

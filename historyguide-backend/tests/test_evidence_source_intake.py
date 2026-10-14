@@ -27,6 +27,17 @@ def test_source_intake_requires_operator_key(client, monkeypatch) -> None:
     assert client.get("/api/evidence/sources").status_code == 503
     assert client.post("/api/evidence/sources/batch", json={"sources": SOURCES}).status_code == 503
 
+    # A business key must never act as an operator credential.  Evidence
+    # intake remains unavailable until a distinct operator key is configured.
+    monkeypatch.setattr(client.app.state, "settings", Settings(api_key="business-only"))
+    business_headers = {"X-HistoryGuide-Api-Key": "business-only"}
+    assert client.get("/api/evidence/sources", headers=business_headers).status_code == 503
+    assert client.post(
+        "/api/evidence/sources/batch",
+        json={"sources": SOURCES},
+        headers={"X-HistoryGuide-Api-Key": "business-only"},
+    ).status_code == 503
+
     monkeypatch.setattr(client.app.state, "settings", Settings(operator_api_key="operator-test"))
     assert client.get("/api/evidence/sources").status_code == 401
     assert client.get("/api/evidence/sources/S01").status_code == 401

@@ -36,7 +36,8 @@ This backend does not own:
 
 ## Current Stage
 
-Stage 80: real data pre-import final checklist.
+Current checkpoint: local curator workspace and atomic evidence/exhibit intake.
+Production and Coze release gates remain NO-GO until real evidence is collected.
 
 Implemented:
 
@@ -274,10 +275,18 @@ cd .\historyguide-backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+python -m pip install --require-hashes -r requirements-dev.lock
 ```
 
 ## Run
+
+Runtime and development dependencies are pinned with SHA-256 hashes in
+`requirements.lock` and `requirements-dev.lock`. The Dockerfile installs the runtime
+lock with `--require-hashes`. Range files remain the inputs for intentional upgrades;
+see `docs/dependency_locking.md` for installation, updates, and verification limits.
+
+The Windows Python 3.12 locked environment has been checked locally. Linux container
+builds still require a working Docker daemon and separate validation.
 
 ```powershell
 uvicorn app.main:app --reload
@@ -594,6 +603,24 @@ The summary is structured data for the frontend or GeniOS. It includes visited e
 
 ## Exhibit Data Import
 
+### Curator workspace
+
+Open `/operator` on the backend for a Chinese staff workspace with source/exhibit JSON
+preview and draft import, source approval/revocation, exhibit-source linking,
+exhibit approval/revocation, and audit records. All data APIs require a separate
+operator key; the public page contains no museum records or keys.
+
+On Windows, after creating `.venv` and installing `requirements-dev.lock` with
+`--require-hashes`:
+
+```powershell
+.\scripts\start_local_workspace.ps1
+```
+
+The launcher prompts for a fresh local operator key, listens only on `127.0.0.1`,
+and uses a separate `.local/workspace.db`. See `docs/operator_workspace.md` for the
+workflow, upload limits, authentication boundary, and remaining release gates.
+
 Seed format:
 
 ```text
@@ -791,7 +818,8 @@ the NK-GeniOS final answer gate.
 General historical Q&A has a separate local approved-source run API and plugin schema
 at `/openapi-genios-history-runs.json`; it is not a semantic fact verifier.
 Operator-only draft evidence batch intake, listing, and detail inspection are described in
-`docs/evidence_intake.md`. The cleaned public-source package must not be auto-approved.
+`docs/evidence_intake.md`. The local staff UI is documented in `docs/operator_workspace.md`;
+it has not been deployed or accepted by museum staff. The cleaned public-source package must not be auto-approved.
 
 Next backend work should be chosen from integration needs:
 

@@ -1,4 +1,6 @@
 .venv/
+.local/
+node_modules/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -11,6 +13,7 @@ __pycache__/
 .tmp_historyguide_api_key
 
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
 

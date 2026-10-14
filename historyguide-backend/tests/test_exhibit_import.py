@@ -2,8 +2,13 @@ import json
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.audit_log import AuditLog
+from app.models.evidence import ExhibitApproval
+from app.models.exhibit import Exhibit
 from app.schemas.exhibit import ExhibitCreate
 from app.services.exhibit_import_service import (
     ExhibitImportError,
@@ -111,3 +116,30 @@ def test_validate_exhibits_for_import_rejects_existing_ids(tmp_path: Path, db_se
 
     with pytest.raises(ExhibitImportError, match="already exist"):
         validate_exhibits_for_import(db_session, path)
+
+
+def test_import_cli_rolls_back_when_audit_insert_fails(tmp_path, db_session, monkeypatch, capsys):
+    from scripts import import_exhibits as cli
+
+    path = write_seed_file(tmp_path, valid_payload())
+    monkeypatch.setattr(cli, "init_db", lambda: None)
+    monkeypatch.setattr(cli, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr("sys.argv", ["import_exhibits", str(path)])
+
+    def fail_audit(mapper, connection, target):
+        raise IntegrityError("injected audit insert failure", {}, Exception("failed"))
+
+    event.listen(AuditLog, "before_insert", fail_audit)
+    try:
+        assert cli.main() == 1
+    finally:
+        event.remove(AuditLog, "before_insert", fail_audit)
+    assert "Import failed:" in capsys.readouterr().err
+    assert db_session.scalar(select(func.count()).select_from(Exhibit)) == 0
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 0
+
+    assert cli.main() == 0
+    log = db_session.scalar(select(AuditLog))
+    assert log.actor == "import_cli"
+    assert log.details["exhibit_ids"] == ["import-exhibit-001"]
+    assert db_session.get(ExhibitApproval, "import-exhibit-001") is None
