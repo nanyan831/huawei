@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-09-25T12:00:00+00:00",
+  "level": "INFO",
+  "logger": "historyguide.request",
+  "service_id": "nk-historyguide-backend",
+  "message": "request completed request_id=demo-request-001 method=GET path=/api/genios/context/demo-session-001 status_code=200 elapsed_ms=12.34",
+  "event": "http_request_completed",
+  "request_id": "demo-request-001",
+  "http_method": "GET",
+  "path": "/api/genios/context/demo-session-001",
+  "status_code": 200,
+  "elapsed_ms": 12.34
+}

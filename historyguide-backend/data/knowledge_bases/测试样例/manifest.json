@@ -1,0 +1,88 @@
+{
+  "knowledge_base_name": "测试样例",
+  "purpose": "NK HistoryGuide 联调与检索测试",
+  "status": "test_only",
+  "official_museum_dataset": false,
+  "publish_allowed": false,
+  "source_cutoff_date": "2026-10-09",
+  "package_date": "2026-10-12",
+  "source_sha256": "2d3f3aad4a731cc364552e6fd1a1594d4af6fdb827532dc8cbf27b4beea5d722",
+  "recommended_import_mode": "topic_documents_plus_source_index",
+  "excluded_content": [
+    "route_suggestions.review_only.md",
+    "pending_museum_materials.md",
+    "bibliography.review_only.md",
+    "exhibit_candidates.cleaned.json",
+    "exhibit_candidates.review.csv",
+    "knowledge_chunks.cleaned.jsonl"
+  ],
+  "documents": [
+    {
+      "filename": "00_使用说明与证据规则.md",
+      "section": "0",
+      "sha256": "aa2e7616ccc2c6a6a434952d4bb5895db6561d48601b4c6dc5d6a81921c77a99",
+      "upload_recommended": true
+    },
+    {
+      "filename": "01_发展沿革与关键年份.md",
+      "section": "1",
+      "sha256": "915c3337bd4f28503f5ee661dcac241db1fe0efaea5c1f2f76bf151b9bc44dff",
+      "upload_recommended": true
+    },
+    {
+      "filename": "02_重要人物.md",
+      "section": "2",
+      "sha256": "8db245225e940c021b2397d229718f789d8fae527e2ae28eaae8631c4c2889a3",
+      "upload_recommended": true
+    },
+    {
+      "filename": "03_重大事件与办学成果.md",
+      "section": "3",
+      "sha256": "477406e6ea0ddb63b84b19e42357e48b89363d5b5a01e9eacbaec51b791ad402",
+      "upload_recommended": true
+    },
+    {
+      "filename": "04_校训校歌与公能文化.md",
+      "section": "4",
+      "sha256": "e53f6d9841ad17a915ee1b3d45f51be44132f699929d3a9bb5469cfb569dfffd",
+      "upload_recommended": true
+    },
+    {
+      "filename": "05_校址建筑与纪念设施.md",
+      "section": "5",
+      "sha256": "d6a65debedc722906b5044c21b1375a1c80cd95ae2e82886dcc7bd7947aba851",
+      "upload_recommended": true
+    },
+    {
+      "filename": "06_校史展馆藏照片与文献.md",
+      "section": "6",
+      "sha256": "8427c6c99d6a506029b4191e4b1e3d3af6f983d1d0d9d6698a8425a52cbf33ca",
+      "upload_recommended": true
+    },
+    {
+      "filename": "07_官方网上展板索引.md",
+      "section": "7",
+      "sha256": "0abf055f8e8bffc010f5d877e6b5fb40527c7b4c77adf11942f859022b634333",
+      "upload_recommended": true
+    },
+    {
+      "filename": "08_易混淆信息与回答边界.md",
+      "section": "9",
+      "sha256": "ae8766268a811e8c6ee4f2e86d893afc42d7f2194ed1bfd8098acbcea91d017a",
+      "upload_recommended": true
+    },
+    {
+      "filename": "测试样例_完整知识库.md",
+      "section": "complete",
+      "sha256": "e0f88c67a4729a34d2b289995c96ea355074830cc584dcddc008ea84bb293887",
+      "upload_recommended": false,
+      "note": "单文件导入备用；已导入分主题文档时不要重复导入。"
+    },
+    {
+      "filename": "99_来源索引.md",
+      "section": "sources",
+      "sha256": "f47cd657309777caf5e78306c32c261bd74c0560b04708596fffaa264f52cacf",
+      "upload_recommended": true
+    }
+  ]
+}

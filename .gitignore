@@ -1,0 +1,28 @@
+# Local runtime and secrets
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.py[cod]
+**/.env
+**/.env.*
+!**/.env.example
+**/.tmp*
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.pem
+**/*.key
+**/*.p12
+
+# Generated transfer packages and local documents
+*.zip
+*.tar
+*.docx
+
+# Editor and operating-system state
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

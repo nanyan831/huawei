@@ -1,0 +1,168 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NK HistoryGuide GeniOS Flat Handoff",
+    "description": "Coze/NK-GeniOS friendly handoff tool with scalar output fields. The backend returns source-safety and visit-context signals only; it does not generate museum explanation text.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://historyguide.catlifepet.top"
+    }
+  ],
+  "paths": {
+    "/api/genios/handoff-flat/{session_id}": {
+      "get": {
+        "operationId": "get_genios_flat_handoff",
+        "summary": "Get flat GeniOS handoff package",
+        "description": "Return platform-friendly scalar fields for one museum visit session. GeniOS may generate explanation content only when ready_for_generation is true.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "description": "Visitor session id.",
+            "schema": {
+              "type": "string",
+              "default": "demo-session-001",
+              "example": "demo-session-001"
+            }
+          },
+          {
+            "name": "recommendation_limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum recommendation candidates.",
+            "schema": {
+              "type": "integer",
+              "default": 3,
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          {
+            "name": "route_max_items",
+            "in": "query",
+            "required": false,
+            "description": "Maximum route plan items.",
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          {
+            "name": "X-HistoryGuide-Api-Key",
+            "in": "header",
+            "required": true,
+            "description": "Temporary NK HistoryGuide API key for platform debugging.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flat handoff package for NK-GeniOS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatHandoff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "404": {
+            "description": "Visitor session was not found."
+          },
+          "422": {
+            "description": "Invalid request parameters."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FlatHandoff": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "ready_for_generation",
+          "grounding_sources_complete",
+          "source_reference_count",
+          "sourced_exhibit_ids",
+          "unsourced_exhibit_ids",
+          "missing_exhibit_ids",
+          "blocking_check_names",
+          "visitor_type",
+          "current_exhibit_id",
+          "visited_count",
+          "recommendation_count",
+          "recommendation_exhibit_ids",
+          "route_exhibit_ids",
+          "planned_minutes",
+          "handoff_note"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "ready_for_generation": {
+            "type": "boolean"
+          },
+          "grounding_sources_complete": {
+            "type": "boolean"
+          },
+          "source_reference_count": {
+            "type": "integer"
+          },
+          "sourced_exhibit_ids": {
+            "type": "string"
+          },
+          "unsourced_exhibit_ids": {
+            "type": "string"
+          },
+          "missing_exhibit_ids": {
+            "type": "string"
+          },
+          "blocking_check_names": {
+            "type": "string"
+          },
+          "visitor_type": {
+            "type": "string"
+          },
+          "current_exhibit_id": {
+            "type": "string"
+          },
+          "visited_count": {
+            "type": "integer"
+          },
+          "recommendation_count": {
+            "type": "integer"
+          },
+          "recommendation_exhibit_ids": {
+            "type": "string"
+          },
+          "route_exhibit_ids": {
+            "type": "string"
+          },
+          "planned_minutes": {
+            "type": "integer"
+          },
+          "remaining_time": {
+            "type": "integer",
+            "nullable": true
+          },
+          "handoff_note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

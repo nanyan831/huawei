@@ -1,0 +1,91 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NK HistoryGuide GeniOS Handoff Debug",
+    "description": "Temporary debug OpenAPI for NK-GeniOS. It exposes one GET tool for retrieving the structured handoff package. The backend does not generate museum explanation text.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://ugly-fireant-27.loca.lt"
+    }
+  ],
+  "paths": {
+    "/api/genios/handoff/{session_id}": {
+      "get": {
+        "operationId": "get_genios_handoff",
+        "summary": "Get GeniOS handoff package",
+        "description": "Return structured visitor context, route hints, visit summary, and source-safety signals for one museum visit session.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "description": "Visitor session id.",
+            "schema": {
+              "type": "string",
+              "default": "demo-session-001",
+              "example": "demo-session-001"
+            }
+          },
+          {
+            "name": "recommendation_limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum recommendation candidates.",
+            "schema": {
+              "type": "integer",
+              "default": 3,
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          {
+            "name": "route_max_items",
+            "in": "query",
+            "required": false,
+            "description": "Maximum route plan items.",
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          {
+            "name": "X-HistoryGuide-Api-Key",
+            "in": "header",
+            "required": true,
+            "description": "Temporary NK HistoryGuide API key for platform debugging.",
+            "schema": {
+              "type": "string",
+              "default": "hg-temp-7f60f8611a0e44a5ae8bed1054225874"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Structured handoff package for GeniOS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "404": {
+            "description": "Visitor session was not found."
+          },
+          "422": {
+            "description": "Invalid request parameters."
+          }
+        }
+      }
+    }
+  }
+}

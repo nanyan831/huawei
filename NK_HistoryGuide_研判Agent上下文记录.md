@@ -1,0 +1,410 @@
+# NK HistoryGuide 研判 Agent 上下文记录
+
+用途：持续记录 NK-GeniOS 可信讲解研判层的创建、配置与验证状态。每次继续前先阅读本文件；每完成一个 step，立即追加结果、验证证据和下一步。
+
+## 固定边界
+
+- 主讲解 Agent 负责理解用户问题、调用 HistoryGuide handoff、检索知识库并生成回答草稿。
+- 当前保持 NK-GeniOS 单 Agent 模式，研判能力由公网后端的确定性工具提供，不另建第二个对话 Agent。
+- 研判工具负责检查来源安全、路线一致性、展品 ID、开发 fixture 数据和回答可发布性。
+- 研判工具不自行创造历史事实，不替代知识库，不绕过后端 source-safety。
+- 稳定流程应为串行：主讲解生成草稿 -> 调用研判工具 -> pass/revise/block -> 最终回答。
+- `ready_for_generation=false`、`grounding_sources_complete=false`、`missing_exhibit_ids` 非空或 `unsourced_exhibit_ids` 非空时必须阻止无依据讲解。
+- 当前服务器中的 `fixture-exhibit-001/002` 是非历史事实开发数据，不可用于真实校史讲解。
+- 未经用户明确确认，不发布主 Agent、研判 Agent 或相关工作流。
+
+## 目标输出协议
+
+```json
+{
+  "decision": "pass | revise | block",
+  "issues": [],
+  "safe_answer": "审核通过或安全降级后的回答"
+}
+```
+
+## Step 1：建立独立上下文记录
+
+日期：2026-10-07
+
+状态：已完成
+
+结果：
+
+- 已创建本文件，作为研判 Agent 专用的持续上下文记录。
+- 已确定双 Agent 采用串行审核，而不是两个平级 Agent 自由对话。
+- 已确认 NK-GeniOS 登录页可由内置浏览器访问。
+- 当前主讲解 Agent 的 Flat Handoff 工具自然语言联调已通过。
+
+下一步：
+
+- 已被 Step 2 的架构决定替代：不创建第二个对话 Agent，改为单 Agent 调用后端研判工具。
+
+## Step 2：实现后端确定性研判 API
+
+日期：2026-10-09
+
+状态：已完成
+
+架构决定：
+
+- NK-GeniOS 继续使用单 Agent 模式。
+- 新增公网后端工具 `POST /api/genios/review`，作为独立研判层。
+- 研判过程不调用大模型，只复用 handoff、preflight、source-safety 和 route plan 做确定性检查。
+- 工具输入输出采用平台友好的扁平字段，避免嵌套对象导致 NK-GeniOS 插件解析失败。
+
+实现结果：
+
+- 新增 `GeniosReviewRequest` 和 `GeniosReviewResponse`。
+- 输入字段包括 `session_id`、`draft_answer`、逗号分隔的 `cited_exhibit_ids`、推荐数量和路线数量。
+- 输出字段包括 `decision`、`issues`、`safe_answer`、来源安全、路线顺序、展品 ID、来源引用和 fixture 检查结果。
+- 判定优先级为 `block > revise > pass`。
+- `ready_for_generation=false`、来源不完整、缺失/无来源展品或开发 fixture 数据会返回 `block`。
+- 展品 ID 不合法、引用为空或路线顺序错误会返回 `revise`。
+- 所有检查通过时返回 `pass`，并原样返回去除首尾空白后的草稿。
+- capability 清单已加入 `/api/genios/review`。
+
+验证证据：
+
+- `python -m compileall -q app`：通过。
+- `pytest tests/test_genios_context.py tests/test_openapi_contract.py`：`22 passed`。
+- 已覆盖 pass、路线顺序 revise、fixture block 和缺失 session 404。
+
+下一步：
+
+- 为研判接口生成独立的最小 OpenAPI 导入文件。
+- 增加 OpenAPI 契约测试，再运行完整测试集。
+
+## Step 3：生成研判工具 OpenAPI 契约
+
+日期：2026-10-09
+
+状态：已完成
+
+实现结果：
+
+- 新增公开契约地址 `/openapi-genios-review.json`。
+- 新增 NK-GeniOS 本地上传文件 `historyguide-backend/coze_genios_review_openapi_plugin_auth.json`。
+- 契约只暴露 `POST /api/genios/review` 一个工具。
+- 认证沿用插件级 `X-HistoryGuide-Api-Key`。
+- 请求体和响应体均避免数组/嵌套响应字段；`issues`、`checked_exhibit_ids` 使用字符串。
+- `/openapi-genios-review.json` 已加入公开路径白名单，读取契约本身不需要 API Key。
+
+验证证据：
+
+- OpenAPI 上传文件通过 `python -m json.tool` 校验。
+- `python -m compileall -q app`：通过。
+- 完整 `pytest`：`166 passed`，仅有 2 条第三方库弃用警告。
+
+下一步：
+
+- 制作服务器增量部署包并更新公网后端。
+- 公网验证健康检查、OpenAPI 契约、401 鉴权和带 Key 的研判调用。
+- 验证完成后，才在 NK-GeniOS 创建并 Debug 新工具；未经用户确认不发布 Agent。
+
+## Step 4：部署并验证公网研判 API
+
+日期：2026-10-09
+
+状态：已完成
+
+部署结果：
+
+- 已生成增量包 `historyguide-review-update.zip`，仅包含 5 个后端代码文件，不包含数据库、环境变量或密钥。
+- 已通过免密 SSH 上传并部署到 `/opt/nk-historyguide`。
+- 部署前备份：`/opt/nk-historyguide/backups/review-update-20261009-145132.tar.gz`。
+- `nk-historyguide.service` 已重启并保持 `active`。
+- 重启后 nginx 曾在 uvicorn 启动窗口内短暂返回 502；约 2 秒后本机及公网健康检查均恢复 200，无需回滚。
+- 发现运行环境中的 API Key 与 `.historyguide_api_key` 不一致；已将 `historyguide.env` 同步为现有插件使用的 Key，并重启验证。未输出密钥值。
+
+公网验证证据：
+
+- `GET https://historyguide.catlifepet.top/health`：200。
+- `GET https://historyguide.catlifepet.top/openapi-genios-review.json`：可读，operationId 为 `review_genios_answer`。
+- 无 Key 调用 `POST /api/genios/review`：401。
+- 带现有插件 Key 调用：200。
+- `demo-session-001` 研判结果：`decision=block`、`fixture_data_detected=true`、展品 ID 和来源检查通过，阻断原因是开发 fixture 数据不可用于真实校史讲解。
+
+安全提醒：
+
+- 当前 Key 曾在对话中暴露，只用于继续联调；正式发布前必须轮换，并同步更新所有插件鉴权。
+
+下一步：
+
+- 在 NK-GeniOS 新建研判插件并导入 `coze_genios_review_openapi_plugin_auth.json`。
+- 配置插件级 Header Key，完成 Debug。
+- 将通过 Debug 的研判工具加入当前单 Agent，并更新提示词为 handoff -> 草稿 -> review -> 最终输出的串行流程。
+- 不发布 Agent，除非用户明确确认。
+
+## Step 5：NK-GeniOS 页面接入尝试
+
+日期：2026-10-09
+
+状态：待继续
+
+门禁：必须先在 NK-GeniOS 工具详情页看到 `Debug 通过`，才能进入 Agent 挂载和提示词修改；后端验证通过不能替代平台 Debug 通过。
+
+当前进展：
+
+- 内置浏览器能够枚举到已登录的 NK-GeniOS Agent 编辑页。
+- 浏览器控制接口在绑定现有标签页以及创建同站点控制标签页时连续超时并自动重置。
+- 2026-10-09 再次枚举到已登录编辑页，但读取该标签页仍超时；因此本步仍按未验证处理。
+- 未盲点页面，未创建重复插件，未上传文件，未修改 Agent，未发布任何内容。
+
+继续位置：
+
+- 上传文件：`historyguide-backend/coze_genios_review_openapi_plugin_auth.json`。
+- 插件名称建议：`NK HistoryGuide Answer Review`。
+- 插件级 API Key Header：`X-HistoryGuide-Api-Key`，使用服务器 `/opt/nk-historyguide/.historyguide_api_key` 当前值；不要在聊天中再次粘贴。
+- Debug 参数：`session_id=demo-session-001`、`draft_answer=先参观展品二。`、`cited_exhibit_ids=fixture-exhibit-002`、`recommendation_limit=3`、`route_max_items=5`。
+- 预期 Debug 成功且业务结果为 `decision=block`、`fixture_data_detected=true`。这是正确结果，表示研判层拦截了开发 fixture。
+
+## Step 6：测试知识库接入与问答边界验证
+
+日期：2026-10-13
+
+状态：知识库联调通过；研判插件接入仍待验证
+
+验证证据（用户提供的平台截图与运行记录）：
+
+- 平台中的“测试知识库”显示 11 份文档；本次导入的 10 份 Markdown 均显示“解析成功”且已启用。用户确认没有旧资料引入，但第 11 份文档的具体内容未在截图中核实。
+- 命中测试“南开大学何时建立”返回 3 个分段，来源为 `01_发展沿革与关键年份.md`。
+- Agent 回答正确区分 1919 年创办、9 月 25 日开学典礼、10 月 17 日校庆日和 11 月 22 日成立纪念大会，并给出 `[S01][S02][S31，第89条]`。用户提供的运行记录提到检索上下文 `context3`，可确认本次回答使用了知识库内容。
+- 边界测试询问张伯苓手札原件的馆藏编号与所在展柜号；Agent 明确回答当前资料不足、无法确认，未编造编号或位置。
+
+限制与下一步：
+
+- 当前知识库为测试资料，不是校史馆审定稿；不得据此正式发布历史讲解服务。
+- 研判插件在 NK-GeniOS 的创建、Debug 与 Agent 挂载状态仍无验证证据。按 Step 5 门禁，先验证研判工具 Debug 通过，再修改 Agent 串行流程。
+- 正式发布前轮换曾在对话中暴露的 API Key，并同步更新插件鉴权。
+
+## Step 7：NK-GeniOS 研判工具 Debug 验证
+
+日期：2026-10-14
+
+状态：已完成；Agent 挂载与串行调用仍待验证
+
+平台验证证据（用户提供的 Debug Request/Response）：
+
+- 已创建 `NK HistoryGuide Answer Review` 插件并导入 `review_genios_answer` 工具。
+- 首次 Debug 返回 401，提示缺少有效的 HistoryGuide API Key；用户更新插件 Header 后再次 Debug 通过。
+- 请求：`session_id=demo-session-001`、`draft_answer=先参观展品二。`、`cited_exhibit_ids=fixture-exhibit-002`、`recommendation_limit=3`、`route_max_items=5`。
+- 响应：`decision=block`、`fixture_data_detected=true`、`ready_for_generation=true`、`grounding_sources_complete=true`、`route_order_valid=true`、`exhibit_ids_valid=true`、`source_references_valid=true`。
+- `issues` 明确指出开发 fixture 数据不可用于真实讲解；`safe_answer` 为拒绝提供不可靠讲解的安全降级文本。平台调试成功且业务阻断符合预期。
+
+下一步：
+
+- 在当前单 Agent 的插件列表中挂载研判工具，但先不发布。
+- 更新并验证串行流程：获取 handoff、结合知识库生成草稿、调用研判工具、按 `pass/revise/block` 决定最终回答。不得把 Debug 通过等同于 Agent 自动调用成功。
+- 发布前仍须轮换已暴露的 API Key，并同步更新所有相关插件。
+
+## Step 8：研判工具挂载到讲解 Agent
+
+日期：2026-10-14
+
+状态：用户报告已挂载；Agent 实际调用尚未验证
+
+进展与约束：
+
+- NK-GeniOS 平台要求先发布插件，才能将工具添加到 Agent。用户已按平台流程完成研判工具添加；这不等同于发布讲解 Agent。
+- 后端 `review_genios_answer` 要求至少一个 `cited_exhibit_ids`，且 ID 必须来自 handoff 中的 grounding 展品。纯知识库史实问答没有展品 ID 时，不应强行调用该工具；需继续按知识库证据规则回答。
+- Review 是确定性结构检查（来源完整性、展品 ID、路线顺序、fixture），不验证复杂历史叙述的语义真伪；历史事实仍须以知识库证据为准。
+- 对涉及具体展品或路线的草稿，必须在最终回答前调用 Review；`block` 时使用 `safe_answer` 降级，不得展示未核验草稿；`revise` 时根据 `issues` 修订并重试，不能把修订请求当作通过。
+
+下一步：
+
+- 核对 Agent 当前提示词中的 HistoryGuide 工具调用规则，再加入最小范围的 Review 调用与结果处理规则。
+- 在 Agent 预览中分别测试纯史实问答（不强制 Review）和带展品 ID 的参观推荐（必须调用 Review，开发 fixture 应被阻断）。
+- 继续保持讲解 Agent 未发布，并在正式发布前轮换已暴露的 Key。
+
+## Step 9：单 Agent 端到端阻断路径联调
+
+日期：2026-10-14
+
+状态：阻断路径已完成；通过与修订路径仍待验证
+
+用户确认的联调结果：
+
+- 之前 Agent 预览中 Handoff 曾返回 401；随后用户报告已完成工具调用检查，确认本轮 Handoff 调用成功，Review 返回预期的 `decision=block` 与 `fixture_data_detected=true`。本记录依据用户确认，未保存含密钥的调用截图。
+- Agent 最终回答正确给出南开大学 1919 年创办、9 月 25 日开学典礼、10 月 17 日校庆日以及 `[S01][S02][S31，第89条]` 来源。
+- 对展品与参观顺序，Agent 给出“当前参观上下文或资料来源未通过安全检查，暂时无法提供可靠建议”，未泄露开发 fixture 展品或路线。
+
+尚未完成：
+
+- 未验证非 fixture、经审定展品上的 `pass` 分支，也未验证路线顺序错误触发的 `revise` 分支。
+- 测试知识库尚非校史馆审定稿；不能以此作为真实馆内展品讲解发布依据。
+- 已暴露的 API Key 尚待轮换并同步更新 Handoff、Review 两个插件；讲解 Agent 保持未发布。
+
+下一步：先取得至少一条有来源、经馆方核验且具稳定展品 ID 的真实展品数据，再建立对应访客会话，测试 `pass` 和 `revise`。在此之前不要将 fixture 测试结果误当成正式讲解可发布的证明。
+
+## Step 10：Agent 架构调研与本地审核闭环
+
+日期：2026-10-14
+
+状态：本地后端实现并通过测试；线上平台未接线、未部署
+
+- 调研 ReAct、Magentic-One、AFlow、Tau-bench、AgentDojo、ALCE 后，确定当前项目继续采用单讲解 Agent 加确定性后端研判。此研判层不是第二个 LLM Agent，不能声称已做语义事实核验。
+- 新增证据源、展品关联与人工审批记录；未审批、撤销、变更或 fixture 数据在 Review 阶段阻断。新增数据库迁移 `0003_evidence_governance`。
+- 新增 15 分钟时限的审核 run：prepare 保存参观及证据快照、review 记录草稿哈希与结论、finalize 只返回相同草稿或安全阻断文本。参观状态或证据变更、过期、重放均拒绝。新增迁移 `0004_review_runs`。
+- 增加审核流程与迁移测试，并将临时密钥文件列入 `.gitignore`。架构和上线门禁详见 `historyguide-backend/docs/agent_architecture_2026.md`。
+- 本地测试通过不等于 Coze 必经审核：既有插件仍是旧接口；只有平台最终输出经工作流或网关强制走 finalize，才构成实际强制门禁。馆方审定证据、语义级引用核验、完整评测、密钥轮换与服务器部署仍未完成。
+- 新增操作员审核统计接口 `GET /api/evidence/review-run-stats`，只汇总状态、结论和超时数，不返回草稿。全量本地测试为 179 passed，迁移预演和只读 staging 校验测试通过。此为本地验证结果，不代表线上部署完成。
+
+## Step 11：证据摘录绑定与离线流程验收
+
+日期：2026-10-14
+
+状态：本地实现并测试；线上 Coze 与服务器仍未接入
+
+- 修复证据正文被改而存储哈希未变时审批仍有效的问题；审核时重算正文哈希，发现不一致即阻断。
+- 新 run 的 prepare 返回已审批来源的 ID、标题、URI、哈希和最多 8,000 字符摘录；review 要求每个引用展品提供已关联来源的原文摘录。空白、伪造和未关联来源会要求修订。此为引用存在性与来源绑定检查，不是历史语义真伪判断。
+- finalize 改为审核草稿的原文哈希精确匹配；审计日志只记展品/来源 ID 与摘录哈希，不存草稿或摘录正文。
+- 新增 `GET /openapi-genios-runs.json` 的三工具插件契约，未导入 Coze；旧插件保持不变。
+- 新增 `scripts/evaluate_agent_traces.py`，对脱敏轨迹检查 prepare、review、finalize、最终输出的顺序及一致性。它只能验证轨迹结构，不能代替真实平台日志或馆方事实评测。
+- 仍需馆方审定资料、Coze 强制出口接线、真实运行轨迹、密钥轮换及 staging 部署验收。详细操作边界见 `historyguide-backend/docs/agent_architecture_2026.md`。
+- 新增 `historyguide-backend/docs/coze_agent_run_workflow.md`，提供 staging 插件接线、Agent 调用规则与验收题单。文档不是平台变更记录，不能以此认定 Coze 已接入新接口。
+
+## Step 12：业务 Key 轮换准备
+
+日期：2026-10-14
+
+状态：本地支持与测试完成；线上旧 Key 未轮换
+
+- 增加临时 `HISTORYGUIDE_API_KEY_NEXT` 配置，短时间内可接受旧、新两个业务 Key，以便逐个迁移 Coze 插件；最终撤销旧 Key 后只保留新 Key。
+- 鉴权比较改用常数时间函数；安全状态仅报告是否处于轮换窗口，不返回任何密钥值。运行配置校验拒绝相同的新旧 Key 或复用操作员 Key。
+- 本地测试覆盖双 Key 接受和切换后旧 Key 返回 401。操作步骤与服务端版本差异提示见 `historyguide-backend/docs/business_key_rotation.md`。
+- 尚未访问服务器或 Coze 插件密钥配置，因此不能声称已完成真实轮换。原先对话中暴露的 Key 在现网是否仍有效，必须以实际服务器鉴权验证为准。
+
+## Step 13：Handoff 提前阻断未审批展品
+
+日期：2026-10-14
+
+状态：本地实现并通过测试；线上旧插件仍未切换
+
+- 修复旧 Handoff 仅凭非空来源字符串可能给出 `ready_for_generation=true` 的问题。现在 grounding 展品缺少当前馆方审批时，结构化与扁平 Handoff 均返回 `ready_for_generation=false`，`blocking_check_names` 含 `museum_approval`。
+- 新增结构完整但未审批展品的专门回归测试；本地全量测试为 192 项通过。旧线上截图的 fixture 状态与本地新版本不可直接比较。
+- 只读检查显示 Codex 内置浏览器仍在南开统一身份认证页，无法核实当前 Coze 插件/工作流配置。已请求用户自行登录；未输入或获取账号密码。
+- 纯校史问答没有展品 ID，仍缺独立的审定来源审核路径与强制最终出口；不能伪造展品 ID 来走展品 run。馆方审定材料、真实平台轨迹、密钥轮换、服务器迁移和上线验收均未完成。
+
+## Step 14：纯校史问答的独立来源引用流程
+
+日期：2026-10-14
+
+状态：本地实现并测试；审定来源、平台接线与实际事实评测待完成
+
+- 新增 `history_review_runs` 表及迁移 `0005_history_review_runs`。纯校史问题不再需要虚构访客或展品 ID；prepare 绑定问题哈希与已审批来源 ID，review 核对原文摘录及正文 `[来源ID]`，finalize 仅放行同一草稿。
+- 撤销、篡改、缺失、fixture 来源及过期 run 会拒绝处理。审核日志不保存问题、草稿或摘录正文。
+- 响应显式包含 `semantic_verified=false`，强调这是引用结构检查，不是语义事实证明。尚无馆方审定来源内容映射到后端，Coze 的测试知识库不能直接当作批准来源。
+- 新增独立 `/openapi-genios-history-runs.json` 插件契约；Coze 尚未导入。全量本地测试为 198 项通过，包括迁移预演。
+- 原 Step 13 所述“纯校史问答缺独立路径”在**本地代码层面**已缓解，但强制平台出口、馆方审定来源和历史事实评测仍未完成。
+
+## Step 15：馆方标注评测门禁模板
+
+日期：2026-10-14
+
+状态：本地模板与评分脚本完成；真实 Coze 轨迹和馆方评分尚无
+
+- 增加 `historyguide-backend/evals/curator_cases.json`，列出创办日期与来源、未知馆藏号拒答、fixture 阻断、真实展品通过、反向路线修订、来源撤销、检索提示注入与工具故障 8 类上线必测场景。
+- 增加 `scripts/score_curator_evaluation.py`：逐案例要求评审人、脱敏轨迹索引及相关评分均明确为 true；缺任何案例或任一必需评分均失败。脚本不验证评审人身份或证据真实性。
+- 该模板**没有**实际馆方评分，不能作为项目已通过事实评测的证据。需等审定来源、Coze 工作流接线和真实轨迹后再执行。
+
+## Step 16：两类审核运行量统一观测
+
+日期：2026-10-14
+
+状态：本地实现并测试；线上未部署
+
+- 操作员接口 `GET /api/evidence/review-run-stats` 现分别汇总展品/路线 run 与纯校史 run 的总量、准备、已审、完成、超时、通过和退回数。响应仍不包含问题、草稿或摘录正文。
+- 本地测试覆盖纯校史完成后的统计值，以及既有展品 run 统计接口权限与隐私边界。
+- 真实监控看板、告警阈值与 Coze 日志关联仍需在 staging 上验证；本地计数不代表线上运行量。
+- 本轮全量本地测试 201 项通过；独立迁移预演实际执行到 `0005_history_review_runs`，确认 10 张表并删除临时数据库，未修改配置中的应用数据库。
+
+## Step 17：审核与放行状态的竞争保护
+
+日期：2026-10-14
+
+状态：本地实现并通过测试；线上未部署
+
+- 展品/路线 run 与纯校史 run 的 review、finalize 均改为带状态条件的数据库更新。已放行 run 不会被迟到的 review 写回重新打开；finalize 只允许一次 `reviewed -> finalized` 状态转换。更新失败时回滚并要求重新准备 run。
+- 增加两类 run 的陈旧会话回归用例，覆盖重复放行和迟到审核；本地全量测试 205 项通过。
+- 该保护只涉及本地数据库 run 状态，不提供 Coze 消息发送的跨系统原子性，也不证明历史陈述语义正确。馆方审定来源、真实平台轨迹、强制出口、密钥轮换、staging/线上验收仍待完成。
+
+## Step 18：密钥文件配置兼容
+
+日期：2026-10-14
+
+状态：本地实现并通过测试；未读取或改动服务器真实密钥
+
+- `Settings.from_env()` 支持 `HISTORYGUIDE_API_KEY_FILE`、`HISTORYGUIDE_API_KEY_NEXT_FILE` 和 `HISTORYGUIDE_OPERATOR_API_KEY_FILE`，与直接环境变量二选一。要求绝对路径、单行非空 UTF-8 内容，缺失、不可读、超大或多行时启动失败。
+- 更新 README 与轮换手册，避免把服务器截图中的 `_FILE` 配置误当成本地版本已支持或已部署的证明。真实运行版本、secret 来源、权限和旧 Key 撤销仍须在 staging/服务器核验。
+- 增加配置异常用例；本地全量测试通过（207 项，第三方依赖有 2 条弃用警告）。没有在此轮读取或输出已暴露的旧密钥值。
+
+## Step 19：馆方证据草稿批量导入与核对
+
+日期：2026-10-14
+
+状态：本地 API 和定向测试通过；网页界面、Coze 同步与真实馆方审批未完成
+
+- 清洗包清单标记 `staff_review_required`、`direct_database_import_allowed=false`；`sources.cleaned.json` 只有来源元数据，没有可作为已审批原文的正文。因此没有把 75 条来源或 266 条知识片段自动导入、批准。
+- 新增操作员专用 `POST /api/evidence/sources/batch`：每批最多 20 条，重复 ID 整批拒绝，落库状态固定为 `draft`；`GET /api/evidence/sources` 提供分页/状态筛选但不返回正文，`GET /api/evidence/sources/{source_id}` 返回详情供人工核对。
+- 定向测试验证鉴权、批量原子性、草稿不能进入校史回答，以及详情可供审核。流程和示例见 `historyguide-backend/docs/evidence_intake.md`。
+- 本轮全量本地测试 210 项通过；操作员接口仍由 `/api/evidence` 前缀统一保护。
+- 仍需馆方提供并核准原始摘录、建立 Coze 引用 ID 与后端 ID 的映射；当前并无工作人员网页导入界面或线上部署。
+
+## Step 20：指定知识库引用 ID 的只读发布门禁
+
+日期：2026-10-14
+
+状态：本地脚本与定向测试通过；尚无真实 Coze 轨迹或 staging 数据库验收
+
+- `scripts/validate_staging_database.py` 新增可重复的 `--require-source-id` 参数。逐 ID 只读查询 `evidence_sources`，核验存在、`approved`、非 fixture、复核记录、来源元数据及正文 SHA-256 一致性；报告不打印正文。
+- 测试覆盖已审批通过、草稿/缺失拒绝、正文篡改拒绝、重复和不安全 ID 参数拒绝。
+- 使用方式已加入 `historyguide-backend/docs/evidence_intake.md`。它不验证 Coze 实际检索片段与后端资料一致，更不能代替馆方语义事实审查。
+- 本轮全量本地测试 212 项通过。对工作区 `historyguide.db` 的只读试跑以退出码 1 失败：S01/S02 均不存在，`alembic_version` 表缺失。该库不是已验收 staging；未对其执行迁移、导入或清理。
+
+## Step 21：无 Alembic 记录旧库的副本接管预演
+
+日期：2026-10-14
+
+状态：本地预演通过；服务器数据库未检查、未修改
+
+- 新增 `scripts/rehearse_legacy_adoption.py`。对指定 SQLite 文件只读备份，在临时副本上比对每个 Alembic 修订的结构签名，检查完整性、识别唯一匹配版本，然后只对副本执行 stamp/upgrade；升级后核对旧表逐行摘要及最终结构。
+- 工作区 `historyguide.db` 的副本匹配 `0005_history_review_runs`，预演保留 9 张原表、42 行数据。原库没有 `alembic_version`，脚本没有对原库 stamp 或迁移；它仍不能作为 staging 或馆方数据验收证据。
+- 测试覆盖 HEAD 等价旧库、较早版本升级、结构漂移拒绝、外键损坏拒绝和源文件字节不变。迁移边界见 `historyguide-backend/docs/database_migrations.md`。
+- 现网库版本及 schema 未核实；上线前仍需识别真实数据库、可恢复备份、staging 副本预演与人工 cutover。没有自动处理现网。
+- 本轮全量本地测试 216 项通过；仅有两条第三方测试客户端弃用警告。
+
+## Step 22：共享环境启动拒绝隐式建表
+
+日期：2026-10-14
+
+状态：本地实现与定向测试通过；现网启动参数未改变
+
+- 新增 `HISTORYGUIDE_SCHEMA_MODE`。本地演示默认 `auto_create`；设置 `migrated` 后，服务启动只读核验 `alembic_version` 当前 head 与 SQLAlchemy 模型结构差异，不执行 `create_all`。无版本表或结构漂移会拒绝启动。
+- staging/production 的运行配置校验要求 `migrated`；`/api/system/database` 在该模式下报告 `alembic_migrated_verified`。测试覆盖正确迁移库、无版本旧库、缺表漂移和本地兼容模式。
+- 文档已说明切换次序；没有在真实服务器设置该参数，也没有对其数据库做 stamp/upgrade。现网数据库仍需备份与 staging 验收。
+- 本轮全量本地测试 221 项通过；两条弃用警告来自第三方测试客户端。
+
+## Step 23：现网只读盘点与版本差异
+
+日期：2026-10-14
+
+状态：只读核实；现网未部署、未备份、未迁移、未重启
+
+- 已通过已知主机校验的免密 SSH 确认 `nk-historyguide.service` 为 active，运行目录 `/opt/nk-historyguide`，现用虚拟环境 Python 3.10.12；当前本地代码要求 Python >=3.11，服务器 PATH 未发现 3.11/3.12。
+- 公网系统接口仍报告 SQLite + `create_all`。准确定位数据库为 `/opt/nk-historyguide/historyguide.db`；只读检查显示四张早期业务表、无 `alembic_version`，结构与 `0002_audit_logs` 阶段相符但尚不能视作正式迁移版本。
+- 现网数据计数：2 条展品均为 `fixture-exhibit-*`，1 条访客状态、0 条访问事件、2 条审计日志；外键检查无违规。环境文件仅发现业务 Key、数据库 URL、日志格式三个变量名，未发现独立操作员 Key；没有查看变量值或资料正文。
+- 独立观测报告见 `historyguide-backend/docs/live_inventory_2026-10-14.md`。下一阶段需在隔离 staging 使用真实服务器库的一致副本预演、准备 Python >=3.11 环境与可恢复备份，再考虑部署；当前不能将本地功能或测试绿灯等同现网就绪。
+
+## Step 24：隔离容器 staging 与现网旧库只读接管预演
+
+日期：2026-10-14
+
+状态：技术兼容性验证通过；资料、平台接线及生产发布门禁仍未通过
+
+- 修正 Docker 镜像构建，使其携带 `alembic.ini` 和 `migrations`；在现有服务器上构建 Python 3.12.15 隔离镜像。使用镜像及软件包镜像源，尚未独立核实上游供应链，也未锁定依赖版本。
+- 新建与现网分离的空 SQLite staging 库，执行 `alembic upgrade head` 至 `0005_history_review_runs`；`--network none`、无公开端口的容器以 `migrated` 模式启动，`/health`、`/ready`、数据库状态及新工具 OpenAPI 均为 HTTP 200。
+- 本地和镜像实际依赖环境均为 221 项测试通过。最初容器测试因只读挂载的默认数据库路径及漏传 README 失败，修正测试环境后全量通过；不能把前两次环境错误当成代码缺陷或掩盖记录。
+- 为隔离容器单独生成业务/操作员测试密钥，以只读文件挂载。运行配置校验 0 fail、1 个 CORS 未配置 warning；业务接口无 Key 401、有测试 Key 200，操作员接口无 Key 401、有独立测试 Key 200。没有读取或输出线上旧密钥值。
+- 对真实线上 `historyguide.db` 只读挂载运行接管预演：唯一匹配 `0002_audit_logs`，临时副本升级到 `0005_history_review_runs`，原 4 表 5 行摘要不变。**未**对现网库 stamp、迁移、备份留档或切换服务；线上 `nk-historyguide.service` 仍 active。
+- 新空 staging 的数据门禁按预期失败：没有展品，也没有已审定的 S01/S02 来源。Coze 尚未接入新工具，馆方评测、强制审核出口、线上密钥轮换及可恢复备份仍待完成。详见 `historyguide-backend/docs/staging_validation_2026-10-14.md`，当前发布结论为 NO-GO。

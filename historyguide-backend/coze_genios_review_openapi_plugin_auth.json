@@ -1,0 +1,160 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NK HistoryGuide Answer Review",
+    "description": "Deterministically review one museum-answer draft against HistoryGuide source safety, exhibit references, fixture detection, and route order.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://historyguide.catlifepet.top"
+    }
+  ],
+  "paths": {
+    "/api/genios/review": {
+      "post": {
+        "operationId": "review_genios_answer",
+        "summary": "Review a GeniOS answer draft",
+        "description": "Return pass, revise, or block using deterministic backend checks. This tool does not call a large language model.",
+        "security": [
+          {
+            "HistoryGuideApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Flat deterministic review result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "404": {
+            "description": "Visitor session was not found."
+          },
+          "422": {
+            "description": "Invalid request body."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "HistoryGuideApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-HistoryGuide-Api-Key"
+      }
+    },
+    "schemas": {
+      "ReviewRequest": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "draft_answer",
+          "cited_exhibit_ids"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "default": "demo-session-001",
+            "description": "Visitor session id."
+          },
+          "draft_answer": {
+            "type": "string",
+            "description": "Answer draft produced by the main Agent."
+          },
+          "cited_exhibit_ids": {
+            "type": "string",
+            "description": "Comma-separated exhibit ids cited in draft order."
+          },
+          "recommendation_limit": {
+            "type": "integer",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 10
+          },
+          "route_max_items": {
+            "type": "integer",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 10
+          }
+        }
+      },
+      "ReviewResponse": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "decision",
+          "issues",
+          "safe_answer",
+          "ready_for_generation",
+          "grounding_sources_complete",
+          "route_order_valid",
+          "exhibit_ids_valid",
+          "source_references_valid",
+          "fixture_data_detected",
+          "checked_exhibit_ids"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "revise",
+              "block"
+            ]
+          },
+          "issues": {
+            "type": "string"
+          },
+          "safe_answer": {
+            "type": "string"
+          },
+          "ready_for_generation": {
+            "type": "boolean"
+          },
+          "grounding_sources_complete": {
+            "type": "boolean"
+          },
+          "route_order_valid": {
+            "type": "boolean"
+          },
+          "exhibit_ids_valid": {
+            "type": "boolean"
+          },
+          "source_references_valid": {
+            "type": "boolean"
+          },
+          "fixture_data_detected": {
+            "type": "boolean"
+          },
+          "checked_exhibit_ids": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

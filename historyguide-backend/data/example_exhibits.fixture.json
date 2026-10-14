@@ -1,0 +1,27 @@
+[
+  {
+    "id": "fixture-exhibit-001",
+    "name": "Fixture Exhibit One",
+    "description": "Non-historical development fixture for validating import and API behavior.",
+    "period": "fixture-period",
+    "keywords": ["fixture", "context"],
+    "importance": 3,
+    "people": [],
+    "time_range": null,
+    "themes": ["development"],
+    "source_reference": "Development fixture only. Replace with verified museum source before production use."
+  },
+  {
+    "id": "fixture-exhibit-002",
+    "name": "Fixture Exhibit Two",
+    "description": "Second non-historical development fixture for recommendation flow checks.",
+    "period": "fixture-period",
+    "keywords": ["fixture", "recommendation"],
+    "importance": 4,
+    "people": [],
+    "time_range": null,
+    "themes": ["development"],
+    "source_reference": "Development fixture only. Replace with verified museum source before production use."
+  }
+]
+

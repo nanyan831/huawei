@@ -1,0 +1,187 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NK HistoryGuide GeniOS Handoff Plugin",
+    "description": "Expose the NK HistoryGuide backend handoff package for GeniOS. The backend returns structured visitor context, route hints, visit summary, and source-safety signals; it does not generate museum explanation text.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://ugly-fireant-27.loca.lt",
+      "description": "Temporary NK HistoryGuide backend tunnel for integration testing"
+    }
+  ],
+  "paths": {
+    "/api/genios/handoff/{session_id}": {
+      "get": {
+        "operationId": "get_genios_handoff",
+        "summary": "Get GeniOS handoff package",
+        "description": "Return structured handoff data for one museum visit session. GeniOS should generate explanation content only when source_safety.ready_for_generation is true.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "description": "Visitor session id for one real museum visit.",
+            "schema": {
+              "type": "string",
+              "example": "demo-session-001"
+            }
+          },
+          {
+            "name": "recommendation_limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum recommendation candidates to include.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 3
+            }
+          },
+          {
+            "name": "route_max_items",
+            "in": "query",
+            "required": false,
+            "description": "Maximum route plan items to include.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 5
+            }
+          }
+        ],
+        "security": [
+          {
+            "HistoryGuideApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Structured handoff package for GeniOS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeniosHandoff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "404": {
+            "description": "Visitor session was not found."
+          },
+          "422": {
+            "description": "Invalid request parameters."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "HistoryGuideApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-HistoryGuide-Api-Key"
+      }
+    },
+    "schemas": {
+      "GeniosHandoff": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "source_safety",
+          "preflight",
+          "context",
+          "route_plan",
+          "visit_summary",
+          "handoff_note"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "source_safety": {
+            "$ref": "#/components/schemas/SourceSafety"
+          },
+          "preflight": {
+            "type": "object",
+            "description": "Structured readiness checks before GeniOS generation."
+          },
+          "context": {
+            "type": "object",
+            "description": "Visitor State, exhibit context, visit events, recommendations, and grounding exhibit ids."
+          },
+          "route_plan": {
+            "type": "object",
+            "description": "Rule-based route plan for the remaining visit."
+          },
+          "visit_summary": {
+            "type": "object",
+            "description": "Structured visit summary for recap and continuity."
+          },
+          "handoff_note": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceSafety": {
+        "type": "object",
+        "required": [
+          "ready_for_generation",
+          "grounding_sources_complete",
+          "source_reference_count",
+          "sourced_exhibit_ids",
+          "unsourced_exhibit_ids",
+          "missing_exhibit_ids",
+          "blocking_check_names",
+          "safety_note"
+        ],
+        "properties": {
+          "ready_for_generation": {
+            "type": "boolean",
+            "description": "GeniOS may generate explanation content only when this value is true."
+          },
+          "grounding_sources_complete": {
+            "type": "boolean"
+          },
+          "source_reference_count": {
+            "type": "integer"
+          },
+          "sourced_exhibit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsourced_exhibit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missing_exhibit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blocking_check_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "safety_note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

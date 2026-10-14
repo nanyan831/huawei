@@ -1,0 +1,44 @@
+{
+  "status": "attention_required",
+  "total_alerts": 5,
+  "fail_count": 2,
+  "warn_count": 3,
+  "alerts": [
+    {
+      "name": "no_exhibit_records",
+      "severity": "warn",
+      "resource_type": "exhibit",
+      "count": 0,
+      "detail": "No exhibit records are available. Import verified museum records before real demos."
+    },
+    {
+      "name": "unsourced_exhibits",
+      "severity": "fail",
+      "resource_type": "exhibit",
+      "count": 1,
+      "detail": "Some exhibit records do not have source_reference values."
+    },
+    {
+      "name": "exhibit_metadata_gaps",
+      "severity": "warn",
+      "resource_type": "exhibit",
+      "count": 3,
+      "detail": "Some exhibit records have empty keywords, themes, or people metadata."
+    },
+    {
+      "name": "visitor_state_integrity_issues",
+      "severity": "fail",
+      "resource_type": "visitor_state",
+      "count": 2,
+      "detail": "Visitor State snapshots and visit-event timelines have structural drift."
+    },
+    {
+      "name": "audit_logs_empty",
+      "severity": "warn",
+      "resource_type": "audit_log",
+      "count": 0,
+      "detail": "No audit logs have been recorded yet. State-changing operations should leave audit evidence."
+    }
+  ],
+  "example_note": "Placeholder monitoring example only. This is not evidence that any real staging, production-like, or museum deployment has produced these alerts."
+}

@@ -1,0 +1,89 @@
+# 公开来源索引
+
+## 12. 可靠出处总目录
+
+全部链接检索／访问日期为 **2026-10-09**。日期优先取页面明示；仅由网址或搜索摘要取得的日期已注明，不能误作史实发生日。级别沿用用户给定的1—5级；“1/2”表示官方发布的展板／馆藏图像，能直接核对图面，但未取得内部档案原件、馆藏号和授权证明。
+
+| 来源号 | 题名与链接 | 发布机构／来源 | 发布或版本日期 | 优先级 |
+| --- | --- | --- | --- | --- |
+| S01 | [历史沿革](https://www.nankai.edu.cn/169/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S02 | [1919—1948年大事记](https://www.nankai.edu.cn/173/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S03 | [1949—1978年大事记](https://www.nankai.edu.cn/1949w1978ndsj/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S04 | [1979—2011年大事记](https://www.nankai.edu.cn/1979w2011ndsj/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S05 | [2012年至今大事记](https://www.nankai.edu.cn/2012nzjdsj/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S06 | [学校简介](https://www.nankai.edu.cn/162/list.htm) | 南开大学官网 | 数据截至2026-05 | 2 |
+| S07 | [“允公允能 日新月异——纪念南开大学建校100周年展览”开展](https://nkuaa.nankai.edu.cn/info/1020/6583.htm) | 南开校友网／南开大学新闻网 | 2019-10-23（该转载页） | 2 |
+| S08 | [展现光辉历程 激励奋勇前行——纪念南开大学建校100周年展览开展侧记](https://nkuaa.nankai.edu.cn/info/1020/6727.htm) | 南开校友网／南开大学新闻网 | 2019-12-03（该转载页） | 2 |
+| S09 | [馆藏概述](https://archives.nankai.edu.cn/gzgs/gzgs.htm) | 南开大学档案馆 | 未标日期 | 2 |
+| S10 | [馆藏珍品](https://archives.nankai.edu.cn/index/gczp.htm) | 南开大学档案馆 | 栏目动态更新 | 2 |
+| S11 | [毕业班学生历年成绩表（1919-1936年）](https://archives.nankai.edu.cn/info/1075/1785.htm) | 南开大学档案馆 | 2020-04-26 | 1/2 |
+| S12 | [南开系列学校体育运动会的徽章](https://archives.nankai.edu.cn/info/1075/1783.htm) | 南开大学档案馆 | 2020-04-20 | 1/2 |
+| S13 | [西南联大时期教授使用过的缝纫机](https://archives.nankai.edu.cn/info/1075/1782.htm) | 南开大学档案馆 | 2020-04-20 | 1/2 |
+| S14 | [南开同学录2](https://archives.nankai.edu.cn/info/1075/1781.htm) | 南开大学档案馆 | 2020-04-20 | 1/2 |
+| S15 | [南开同学录](https://archives.nankai.edu.cn/info/1075/1780.htm) | 南开大学档案馆 | 2020-04-20 | 1/2 |
+| S16 | [南开大学思源堂—科学馆](https://archives.nankai.edu.cn/info/1075/2407.htm) | 南开大学档案馆 | 2025-03-27 | 1/2 |
+| S17 | [知中国服务中国——南开大学早期爱国报国办学实践专题展览](https://archives.nankai.edu.cn/info/1062/2602.htm) | 南开大学档案馆 | 2025-10-15 | 1/2 |
+| S18 | [关于举办“知中国服务中国——南开大学早期爱国报国实践专题展览”的通知](https://www.nankai.edu.cn/2025/1016/c17471a581444/page.htm) | 南开大学官网 | 2025-10-16 | 2 |
+| S19 | [百年南开校园与文化的历史变迁](https://archives.nankai.edu.cn/info/1062/1634.htm) | 南开大学档案馆 | 2019-09-20 | 1/2 |
+| S20 | [（更新版）档案中的青春诗境南开园（1919一1937）](https://archives.nankai.edu.cn/info/1062/2294.htm) | 南开大学档案馆 | 2024-06-11 | 2 |
+| S21 | [网上展厅](https://archives.nankai.edu.cn/index/wszt.htm) | 南开大学档案馆 | 栏目动态更新 | 2 |
+| S22 | [南开校史史料珍藏展举行](https://archives.nankai.edu.cn/info/1061/1345.htm) | 南开大学档案馆／南开新闻网 | 2016-10-19 | 2 |
+| S23 | [学校举办纪念周恩来总理入学100周年暨视察母校60周年展览](https://archives.nankai.edu.cn/info/1060/1675.htm) | 南开大学档案馆 | 2019-05-27 | 2 |
+| S24 | [周恩来与南开精神特展在南开大学持续展出](https://museum.nankai.edu.cn/2021/0929/c8760a399216/pagem.htm) | 南开大学博物馆 | 2021-09-29 | 2 |
+| S25 | [抗战时期的南开记忆](https://archives.nankai.edu.cn/info/1146/1850.htm) | 南开大学档案馆 | 2020-09-18 | 2 |
+| S26 | [档案中的南开校园建筑故事（思源堂、秀山堂、木斋馆、胜利楼）](https://archives.nankai.edu.cn/info/1060/1847.htm) | 南开大学档案馆 | 未核精确发布日期 | 2 |
+| S27 | [档案中的南开建筑影像（主楼、文中馆、海冰楼）](https://archives.nankai.edu.cn/info/1144/1818.htm) | 南开大学档案馆 | 2020-06-09 | 2 |
+| S28 | [迎百年校庆 南开大学木斋馆思源堂秀山堂复建完工](https://news.nankai.edu.cn/mtnk/system/2019/06/04/030033845.shtml) | 中新社／南开大学新闻网转载 | 2019-06-01（页内发稿时间） | 4 |
+| S29 | [南大三所历史建筑启动复建](https://news.nankai.edu.cn/mtnk/system/2016/11/05/000303457.shtml) | 天津日报／南开大学新闻网转载 | 2016-11-05 | 4 |
+| S30 | [校训](https://www.nankai.edu.cn/161/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S31 | [南开大学章程](https://xxgk.nankai.edu.cn/2024/0122/c2762a535612/page.htm) | 南开大学信息公开网 | 2024-01-22（页面日期） | 2 |
+| S32 | [南开大学·校歌](https://news.nankai.edu.cn/xsw/system/2013/10/16/000146276.shtml) | 南开大学校史网 | 2013-10-16 | 2 |
+| S33 | [校徽](https://www.nankai.edu.cn/164/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S34 | [南开大学·校色](https://news.nankai.edu.cn/xsw/system/2013/10/16/000146278.shtml) | 南开大学校史网 | 2013-10-16 | 2 |
+| S35 | [南开大学立德树人百年间](https://news.nankai.edu.cn/mtnk/system/2019/10/18/030035831.shtml) | 新华每日电讯／南开大学新闻网转载 | 2019-10-18 | 4 |
+| S36 | [电子信息与光学工程学院送新生“镜箴”启动入学教育第一课](https://news.nankai.edu.cn/zhxw/system/2013/08/19/000137450.shtml) | 南开大学新闻网 | 2013-08-19 | 2 |
+| S37 | [南开参观点（含校钟条目）](https://aiguo.nankai.edu.cn/nkcgd/list.htm) | 南开大学爱国主义教育基地 | 条目标示2019-03-10 | 2 |
+| S38 | [周恩来总理纪念碑](https://aiguo.nankai.edu.cn/2019/0310/c11582a120507/page.htm) | 南开大学爱国主义教育基地 | 2019-03-10（页面路径） | 2 |
+| S39 | [西南联大纪念碑](https://aiguo.nankai.edu.cn/2019/0310/c11582a120509/page.htm) | 南开大学爱国主义教育基地 | 2019-03-10（页面路径） | 2 |
+| S40 | [张伯苓](https://www.nankai.edu.cn/192/list.htm) | 南开大学官网·历届领导 | 未标日期 | 2 |
+| S41 | [何廉（代）](https://www.nankai.edu.cn/193/list.htm) | 南开大学官网·历届领导 | 未标日期 | 2 |
+| S42 | [杨石先](https://www.nankai.edu.cn/194/list.htm) | 南开大学官网·历届领导 | 未标日期 | 2 |
+| S43 | [历届领导](https://www.nankai.edu.cn/191/list.htm) | 南开大学官网 | 未标日期 | 2 |
+| S44 | [天津市严修研究会在南开大学成立](https://nkuaa.nankai.edu.cn/info/1021/3246.htm) | 南开校友网 | 未核精确发布日期 | 2 |
+| S45 | [张彭春先生简介](https://nkuaa.nankai.edu.cn/info/1064/2686.htm) | 南开校友网 | 未标日期 | 2 |
+| S46 | [历史概况](https://phil.nankai.edu.cn/30138/list.htm) | 南开大学哲学院 | 未标日期 | 2 |
+| S47 | [纪念南开大学数学学科100周年暨姜立夫先生诞辰130周年专题网站正式上线](https://news.nankai.edu.cn/zhxw/system/2020/09/22/030040915.shtml) | 南开大学新闻网 | 2020-09-22 | 2 |
+| S48 | [南开档案中的大师记忆之一——陈省身](https://archives.nankai.edu.cn/info/1145/1872.htm) | 南开大学档案馆 | 2020-10-12 | 2 |
+| S49 | [吴大猷：十年的南开生活](https://news.nankai.edu.cn/nkrw/system/2008/07/01/000016996.shtml) | 南开大学新闻网 | 2008-07-01 | 2 |
+| S50 | [郭永怀与南开](https://news.nankai.edu.cn/ywsd/system/2026/06/06/030073131.shtml) | 南开大学新闻网 | 2026-06-06 | 2 |
+| S51 | [程同顺：南开政治学九十年](https://zfxy.nankai.edu.cn/info/1220/3402.htm) | 南开大学周恩来政府管理学院 | 未核精确发布日期 | 2 |
+| S52 | [大事记](https://nkie.nankai.edu.cn/11717/list.htm) | 南开大学经济研究所 | 未标日期 | 2 |
+| S53 | [南开与东北](https://news.nankai.edu.cn/ywsd/system/2024/02/01/030059990.shtml) | 南开大学新闻网 | 2024-02-01 | 2 |
+| S54 | [元素有机化学研究所](https://chem.nankai.edu.cn/2020/0524/c24058a358251/page.htm) | 南开大学化学学院 | 2020-05-24（页面路径） | 2 |
+| S55 | [何炳林](https://chem.nankai.edu.cn/2021/0529/c24061a368133/page.htm) | 南开大学化学学院 | 2021-05-29（页面路径） | 2 |
+| S56 | [陈茹玉](https://chem.nankai.edu.cn/2021/0529/c24061a368132/page.htm) | 南开大学化学学院 | 2021-05-29（页面路径） | 2 |
+| S57 | [郑天挺](https://history.nankai.edu.cn/2019/0911/c16034a202496/page.htm) | 南开大学历史学院 | 2019-09-11（页面路径） | 2 |
+| S58 | [叶嘉莹：谈我与荷花及南开的因缘](https://news.nankai.edu.cn/ywsd/system/2013/06/27/000132329.shtml) | 南开大学新闻网·叶嘉莹自述 | 2013-06-27 | 2／人物自述 |
+| S59 | [国际著名教育家、诗人、中国古典文学研究泰斗、南开大学讲席教授叶嘉莹先生逝世](https://news.nankai.edu.cn/ywsd/system/2024/11/24/030064596.shtml) | 南开大学新闻网 | 2024-11-24 | 2 |
+| S60 | [二十年磨一剑——热烈祝贺本课题组团队成果荣获国家自然科学奖一等奖](https://zhou.nankai.edu.cn/info/1079/1829.htm) | 南开大学周其林教授课题组 | 2020-01-10 | 2 |
+| S61 | [南开大学6个学科入选国家第二轮“双一流”建设](https://news.nankai.edu.cn/ywsd/system/2022/02/15/030050264.shtml) | 南开大学新闻网 | 2022-02-15 | 2 |
+| S62 | [《南开大学简史（1919—2019）》正式出版](https://news.nankai.edu.cn/ywsd/system/2019/09/15/030035227.shtml) | 南开大学新闻网／南开大学报 | 2019-09-15 | 2 |
+| S63 | [纪念南开大学建校100周年校史丛书推出](https://news.nankai.edu.cn/bnxq/system/2019/09/20/030035332.shtml) | 南开大学新闻网 | 2019-09-20 | 2 |
+| S64 | [南开大学校史网改版上线](https://news.nankai.edu.cn/ywsd/system/2023/10/16/030058292.shtml) | 南开大学新闻网 | 2023-10-16 | 2 |
+| S65 | [卢靖与南开大学木斋图书馆](https://nkuef.nankai.edu.cn/info/1088/1130.htm) | 天津南开大学教育基金会 | 未标日期 | 2 |
+| S66 | [周恩来关心母校发展](https://aiguo.nankai.edu.cn/2019/0316/c11584a120842/page.htm) | 南开大学爱国主义教育基地 | 2019-03-16 | 2 |
+| S67 | [物理科学学院组织新生党员参观校史展：传承公能精神 筑牢信仰根基](https://physics.nankai.edu.cn/2025/0921/c26887a578137/page.htm) | 南开大学物理科学学院 | 2025-09-21 | 2 |
+| S68 | [回望百年峥嵘史，守望南开新起点](https://nkise.nankai.edu.cn/info/1061/1159.htm) | 南开大学国家经济研究院 | 未核精确发布日期 | 2 |
+| S69 | [泰达学院做好校区迎庆工作 喜迎南开百年校庆](https://teda.nankai.edu.cn/2019/1027/c11406a242755/page.htm) | 南开大学泰达学院 | 2019-10-27 | 2 |
+| S70 | [南开大学年鉴（2011）](https://nkup.nankai.edu.cn/info/1048/3684.htm) | 南开大学出版社 | 图书出版日期2013-02-01 | 3／出版社书目 |
+| S71 | [先父张伯苓先生传略（南开大学校史丛书）](https://nkup.nankai.edu.cn/info/1068/6659.htm) | 南开大学出版社 | 图书出版日期2016-04-01；页面2019-06-28 | 3／出版社书目 |
+| S72 | [一部教育学述论：读懂张伯苓的教育初心与家国情怀](https://nkup.nankai.edu.cn/info/1014/9862.htm) | 南开大学出版社 | 2026-04-15；介绍图书出版于2026-03 | 3／出版社书目 |
+| S73 | [《党的文献》：南开“镜箴”与周恩来的气质](https://news.nankai.edu.cn/mtnk/system/2010/11/25/000035663.shtml) | 《党的文献》／南开大学新闻网转载 | 转载2010-11-25；原刊期次页码待核 | 3／期刊论文转载 |
+| S74 | [推荐阅读书目](https://jsfz.nankai.edu.cn/2013/1228/c1106a6443/page.htm) | 南开大学教师发展相关网站 | 2013-12-28 | 2／书目线索 |
+| S75 | [档案中的南开建筑影像](https://news.nankai.edu.cn/ywsd/system/2020/06/09/030039619.shtml) | 南开大学新闻网 | 2020-06-09 | 2 |
+
+### 引用与复用说明
+
+正文中的来源号均可跳转至目录；目录链接指向公开原页面。馆藏图片、老照片与展板链接用于溯源核对，本文不声称已取得图片、音乐、展板设计或讲解稿的再传播许可。需要在正式导览系统中展示或播放时，应向权利方取得相应素材及使用范围。
+
+本汇编为检索和讲解开发的依据稿；“本次查到”“曾展出”“馆方图像”与“2026年现场正在展出”是不同判断，必须保留区别。

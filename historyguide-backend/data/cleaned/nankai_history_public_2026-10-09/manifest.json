@@ -1,0 +1,27 @@
+{
+  "dataset": "nankai_history_public_sources",
+  "source_file": "南开大学校史与展陈资料汇编_公开来源核验版_2026-10-09(1).md",
+  "source_sha256": "4301fc25f08f898e1924aa0f95f0c20e8397dd38c5d20e76cb24ede63a2df063",
+  "source_cutoff_date": "2026-10-09",
+  "cleaned_date": "2026-10-12",
+  "status": "staff_review_required",
+  "direct_database_import_allowed": false,
+  "counts": {
+    "sources": 75,
+    "candidates": 105,
+    "knowledge_chunks": 266,
+    "rag_review_candidates": 266
+  },
+  "files": [
+    "knowledge_base.cleaned.md",
+    "knowledge_chunks.cleaned.jsonl",
+    "exhibit_candidates.cleaned.json",
+    "exhibit_candidates.review.csv",
+    "sources.cleaned.json",
+    "sources.cleaned.md",
+    "route_suggestions.review_only.md",
+    "pending_museum_materials.md",
+    "bibliography.review_only.md",
+    "cleaning_report.md"
+  ]
+}
