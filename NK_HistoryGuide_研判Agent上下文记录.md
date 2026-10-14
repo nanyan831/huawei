@@ -408,3 +408,15 @@
 - 为隔离容器单独生成业务/操作员测试密钥，以只读文件挂载。运行配置校验 0 fail、1 个 CORS 未配置 warning；业务接口无 Key 401、有测试 Key 200，操作员接口无 Key 401、有独立测试 Key 200。没有读取或输出线上旧密钥值。
 - 对真实线上 `historyguide.db` 只读挂载运行接管预演：唯一匹配 `0002_audit_logs`，临时副本升级到 `0005_history_review_runs`，原 4 表 5 行摘要不变。**未**对现网库 stamp、迁移、备份留档或切换服务；线上 `nk-historyguide.service` 仍 active。
 - 新空 staging 的数据门禁按预期失败：没有展品，也没有已审定的 S01/S02 来源。Coze 尚未接入新工具，馆方评测、强制审核出口、线上密钥轮换及可恢复备份仍待完成。详见 `historyguide-backend/docs/staging_validation_2026-10-14.md`，当前发布结论为 NO-GO。
+
+## Step 25：GitHub 首次推送与论文驱动接管计划
+
+日期：2026-10-14
+
+状态：源码已推至 GitHub；项目发布门禁仍为 NO-GO
+
+- 在项目根目录初始化 Git `main`，远端指向同一仓库的 `https://github.com/nanyan831/huawei.git`（用户给的 SSH 地址因本机 22/443 连接失败而改用 HTTPS）。已完成 Git Credential Manager 设备授权并推送；`git ls-remote` 核对远端 `main` 与本地提交 `ea9df131d9ec5a002bad325ad0d57d6220b4d139` 一致。本条日志新增后应再核对一次最新 SHA。
+- 根目录 `.gitignore` 与后端忽略规则排除了虚拟环境、SQLite 数据库、临时 Key、部署压缩包、Git bundle 和本地 DOCX；提交内容做过常见令牌/私钥格式扫描。未读取或提交旧线上业务密钥值。
+- 新增 `PROJECT_ROADMAP.md`：基于 ReAct、单/多 Agent 对照、Self-RAG/CRAG、RAG 事实忠实度、AgentDojo 与可靠性评测论文，列出馆方来源、强制审核出口、语义核验、真实评测、部署和馆员入口的完成门禁。结论是先建立单 Agent + 确定性门禁基线，不把第二个 LLM Agent 视为天然更安全。
+- 新增 `HANDOFF_PROMPT.md` 供另一台电脑克隆接管，含独立环境测试、状态审计、保密边界及离线 bundle 路径。`historyguide-20261014.bundle` 已按 `main` 单分支重建并通过 `git bundle verify`；它是本机备用文件，不在 GitHub 仓库中。
+- 本轮后端 221 项本地测试通过。GitHub 上云不代表 Coze 新工作流、馆方资料或生产部署完成；下一步仍是取得审定来源、Coze 可操作权限与正式发布授权后逐门禁验收。
