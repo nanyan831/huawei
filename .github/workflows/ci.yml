@@ -42,7 +42,9 @@ jobs:
           if report.exists():
               failures = []
               for case in ET.parse(report).iterfind(".//testcase"):
-                  failure = case.find("failure") or case.find("error")
+                  failure = case.find("failure")
+                  if failure is None:
+                      failure = case.find("error")
                   if failure is not None:
                       failures.append((case, failure))
               for case, failure in failures[:20]:
