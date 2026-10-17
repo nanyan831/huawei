@@ -65,7 +65,7 @@ cd tests\browser
 npm test
 ```
 
-2026-10-18 的提交前验证结果为 Python `321 passed`、工作人员浏览器流程 `15/15`。
+2026-10-18 的提交前验证结果为 Python `322 passed`、工作人员浏览器流程 `15/15`。
 当前镜像还在服务器隔离环境完成了：
 
 - SQLite 与 PostgreSQL 从空库迁移到 `0008_claim_support_reviews`；
