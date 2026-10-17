@@ -20,6 +20,15 @@ def test_local_package_integrity() -> None:
     assert result["issues"] == []
 
 
+def test_canonical_hash_is_independent_of_checkout_line_endings(tmp_path: Path) -> None:
+    lf = tmp_path / "lf.md"
+    crlf = tmp_path / "crlf.md"
+    lf.write_bytes("first\nsecond\n".encode())
+    crlf.write_bytes("first\r\nsecond\r\n".encode())
+
+    assert module.canonical_text_sha256(lf) == module.canonical_text_sha256(crlf)
+
+
 def test_uploaded_list_detects_backup_duplicate() -> None:
     documents = json.loads(module.DEFAULT_MANIFEST.read_text(encoding="utf-8"))["documents"]
     names = [item["filename"] for item in documents]

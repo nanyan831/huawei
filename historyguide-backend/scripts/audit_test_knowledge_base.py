@@ -15,6 +15,13 @@ DEFAULT_MANIFEST = (
 )
 
 
+def canonical_text_sha256(path: Path) -> str:
+    """Hash UTF-8 text with repository-style LF newlines on every platform."""
+    text = path.read_text(encoding="utf-8")
+    canonical = text.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def audit(manifest_path: Path, uploaded_names: list[str] | None = None) -> dict[str, object]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     documents = manifest["documents"]
@@ -29,7 +36,7 @@ def audit(manifest_path: Path, uploaded_names: list[str] | None = None) -> dict[
         if not path.is_file():
             issues.append(f"missing local file: {item['filename']}")
             continue
-        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        actual_hash = canonical_text_sha256(path)
         if actual_hash != item["sha256"]:
             issues.append(f"local hash mismatch: {item['filename']}")
 

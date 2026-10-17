@@ -20,68 +20,68 @@
     {
       "filename": "00_使用说明与证据规则.md",
       "section": "0",
-      "sha256": "aa2e7616ccc2c6a6a434952d4bb5895db6561d48601b4c6dc5d6a81921c77a99",
+      "sha256": "b4cb77bf40c5e7f8c38765affb7191cf9517f6a7c8642f78eaa17664986eff49",
       "upload_recommended": true
     },
     {
       "filename": "01_发展沿革与关键年份.md",
       "section": "1",
-      "sha256": "915c3337bd4f28503f5ee661dcac241db1fe0efaea5c1f2f76bf151b9bc44dff",
+      "sha256": "d7f8e3dc0c3a226fa4920463df173e1895e446ea0c42324520f6e8524bdb1983",
       "upload_recommended": true
     },
     {
       "filename": "02_重要人物.md",
       "section": "2",
-      "sha256": "8db245225e940c021b2397d229718f789d8fae527e2ae28eaae8631c4c2889a3",
+      "sha256": "e6795ccf2f2011c883e745cb9a59fabca5e2f6326c88383124bbd777aafaf3c4",
       "upload_recommended": true
     },
     {
       "filename": "03_重大事件与办学成果.md",
       "section": "3",
-      "sha256": "477406e6ea0ddb63b84b19e42357e48b89363d5b5a01e9eacbaec51b791ad402",
+      "sha256": "e72b6d2c132b26e385f333af1d226407d63ba5a58cc121d76b6315bcf3371566",
       "upload_recommended": true
     },
     {
       "filename": "04_校训校歌与公能文化.md",
       "section": "4",
-      "sha256": "e53f6d9841ad17a915ee1b3d45f51be44132f699929d3a9bb5469cfb569dfffd",
+      "sha256": "2a8aaf5f61bcb2d1228b3d0e095bfb0bbc199b85969134aef302fbb0fc2b71f7",
       "upload_recommended": true
     },
     {
       "filename": "05_校址建筑与纪念设施.md",
       "section": "5",
-      "sha256": "d6a65debedc722906b5044c21b1375a1c80cd95ae2e82886dcc7bd7947aba851",
+      "sha256": "c53033266e6c1c68949d3e1293ded42a1d75d7262463eea91ef7cf1ae6890a85",
       "upload_recommended": true
     },
     {
       "filename": "06_校史展馆藏照片与文献.md",
       "section": "6",
-      "sha256": "8427c6c99d6a506029b4191e4b1e3d3af6f983d1d0d9d6698a8425a52cbf33ca",
+      "sha256": "066c40fba5b424e22c5790a27a26a3aa2bdc3cbe0c130ef03ad92fa2727aaa66",
       "upload_recommended": true
     },
     {
       "filename": "07_官方网上展板索引.md",
       "section": "7",
-      "sha256": "0abf055f8e8bffc010f5d877e6b5fb40527c7b4c77adf11942f859022b634333",
+      "sha256": "7c0f7c45b7b296c7656bc6c7bd55d20d92f7c06ab364bc09c030b549c7486dbf",
       "upload_recommended": true
     },
     {
       "filename": "08_易混淆信息与回答边界.md",
       "section": "9",
-      "sha256": "ae8766268a811e8c6ee4f2e86d893afc42d7f2194ed1bfd8098acbcea91d017a",
+      "sha256": "463d37f17689fe595e9447542241ed7a1e012421304d71236347440014bdf2b5",
       "upload_recommended": true
     },
     {
       "filename": "测试样例_完整知识库.md",
       "section": "complete",
-      "sha256": "e0f88c67a4729a34d2b289995c96ea355074830cc584dcddc008ea84bb293887",
+      "sha256": "74fc875d8852eb44664587a367e090f0e0f0721ed02289a2a0a1ca3ebaca1b6f",
       "upload_recommended": false,
       "note": "单文件导入备用；已导入分主题文档时不要重复导入。"
     },
     {
       "filename": "99_来源索引.md",
       "section": "sources",
-      "sha256": "f47cd657309777caf5e78306c32c261bd74c0560b04708596fffaa264f52cacf",
+      "sha256": "7826340acee94c4c0395a79b4074ec2a1fded811b38d7214c3b3e75f22d0a65c",
       "upload_recommended": true
     }
   ]
