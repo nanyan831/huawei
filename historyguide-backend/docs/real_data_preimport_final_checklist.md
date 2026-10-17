@@ -171,7 +171,7 @@ GET /api/genios/preflight/{session_id}
 GET /api/genios/handoff/{session_id}
 ```
 
-Generated explanation display is allowed by the backend source-safety gate only when:
+Before drafting, require these necessary source-safety preflight checks:
 
 - Visitor State integrity issue count is zero
 - `grounding_sources_complete=true`
@@ -180,7 +180,7 @@ Generated explanation display is allowed by the backend source-safety gate only 
 - `unsourced_exhibit_ids=[]`
 - preflight `ready_for_handoff=true`
 
-Stop generated explanation display when any source-safety condition fails.
+These checks do not authorize display. A visitor-facing answer must use the matching exhibit/route or general-history review-run and display only `finalize.answer` after successful finalization. Stop display if preflight fails, review/finalize is skipped or fails, or the snapshot is stale.
 
 ## Evidence Update
 

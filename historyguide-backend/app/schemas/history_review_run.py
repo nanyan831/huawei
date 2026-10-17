@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class HistoryPrepareRequest(BaseModel):
@@ -27,6 +27,14 @@ class HistoryPrepareResponse(BaseModel):
 class HistoryCitation(BaseModel):
     source_id: str = Field(min_length=1, max_length=64)
     evidence_quote: str = Field(min_length=8, max_length=800)
+    claim_text: str = Field(min_length=8, max_length=800)
+
+    @field_validator("evidence_quote", "claim_text")
+    @classmethod
+    def require_nonblank_evidence(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Evidence quote and claim text must not be blank.")
+        return value
 
 
 class HistoryReviewRequest(BaseModel):

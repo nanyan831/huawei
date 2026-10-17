@@ -6,6 +6,7 @@ from app.models.exhibit import Exhibit
 from app.models.visitor_state import VisitorState
 from app.schemas.recommendation import ExhibitRecommendation
 from app.services.exhibit_service import get_exhibit, list_exhibits
+from app.services.evidence_service import exhibit_approval_issue
 
 
 VISITOR_TYPE_TERMS: dict[str, list[str]] = {
@@ -27,6 +28,7 @@ def recommend_exhibits(
     visitor_state: VisitorState,
     *,
     limit: int = 3,
+    approved_only: bool = False,
 ) -> list[ExhibitRecommendation]:
     visited = set(visitor_state.visited_history)
     if visitor_state.current_exhibit:
@@ -42,6 +44,9 @@ def recommend_exhibits(
         _score_exhibit(exhibit, visitor_state, current_exhibit)
         for exhibit in list_exhibits(db)
         if exhibit.id not in visited
+        and (not approved_only or (
+            not exhibit.id.startswith("fixture-") and exhibit_approval_issue(db, exhibit) is None
+        ))
     ]
     scored.sort(key=lambda item: (-item.score, item.exhibit.id))
 

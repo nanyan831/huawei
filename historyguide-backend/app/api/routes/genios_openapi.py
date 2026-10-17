@@ -26,6 +26,8 @@ def read_genios_handoff_openapi(request: Request) -> dict[str, Any]:
                 "The backend returns structured visitor context, route hints, "
                 "visit summary, and source-safety signals; it does not generate "
                 "museum explanation text."
+                " The legacy draft-review endpoint is disabled when strict claim-support review is required;"
+                " this handoff is not a final answer release tool."
             ),
             "version": "0.1.0",
         },
@@ -228,7 +230,8 @@ def read_genios_review_openapi(request: Request) -> dict[str, Any]:
             "title": "NK HistoryGuide Answer Review",
             "description": (
                 "Deterministically review one museum-answer draft against HistoryGuide "
-                "source safety, exhibit references, fixture detection, and route order."
+                "source safety, exhibit references, fixture detection, and route order. "
+                "This legacy endpoint is disabled in strict claim-support mode and must not be used as a final answer gate."
             ),
             "version": "0.1.0",
         },
@@ -262,6 +265,7 @@ def read_genios_review_openapi(request: Request) -> dict[str, Any]:
                         },
                         "401": {"description": "Missing or invalid API key."},
                         "404": {"description": "Visitor session was not found."},
+                        "409": {"description": "Legacy review is disabled in strict claim-support mode."},
                         "422": {"description": "Invalid request body."},
                     },
                 }

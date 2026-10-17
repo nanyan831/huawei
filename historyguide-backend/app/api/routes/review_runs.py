@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -33,8 +33,10 @@ def _call(action, *args, **kwargs):
 
 @router.post("", response_model=PrepareRunResponse, status_code=status.HTTP_201_CREATED)
 def create_review_run(
-    payload: PrepareRunRequest, db: Session = Depends(get_db)
+    payload: PrepareRunRequest, request: Request, db: Session = Depends(get_db)
 ) -> PrepareRunResponse:
+    if request.app.state.settings.claim_support_required:
+        raise HTTPException(status_code=409, detail="Use the one-call reviewed answer endpoint in strict mode.")
     visitor_state = get_visitor_state(db, payload.session_id)
     if visitor_state is None:
         raise HTTPException(status_code=404, detail="Visitor session was not found.")
@@ -48,8 +50,10 @@ def create_review_run(
 
 @router.post("/{run_id}/review", response_model=ReviewRunResponse)
 def check_review_run(
-    run_id: str, payload: ReviewRunRequest, db: Session = Depends(get_db)
+    run_id: str, payload: ReviewRunRequest, request: Request, db: Session = Depends(get_db)
 ) -> ReviewRunResponse:
+    if request.app.state.settings.claim_support_required:
+        raise HTTPException(status_code=409, detail="Use the one-call reviewed answer endpoint in strict mode.")
     run = _call(review_run, db, run_id, payload)
     return ReviewRunResponse(
         run_id=run.id, session_id=run.session_id, decision=run.decision,
@@ -60,8 +64,10 @@ def check_review_run(
 
 @router.post("/{run_id}/finalize", response_model=FinalizeRunResponse)
 def release_review_run(
-    run_id: str, payload: FinalizeRunRequest, db: Session = Depends(get_db)
+    run_id: str, payload: FinalizeRunRequest, request: Request, db: Session = Depends(get_db)
 ) -> FinalizeRunResponse:
+    if request.app.state.settings.claim_support_required:
+        raise HTTPException(status_code=409, detail="Use the one-call reviewed answer endpoint in strict mode.")
     run = _call(finalize_run, db, run_id, draft_answer=payload.draft_answer)
     return FinalizeRunResponse(
         run_id=run.id, decision=run.decision, answer=run.safe_answer or "",

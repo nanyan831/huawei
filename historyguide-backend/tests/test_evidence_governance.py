@@ -1,3 +1,7 @@
+from datetime import datetime, timezone
+
+import pytest
+
 from app.models.evidence import EvidenceSource
 from app.core.config import Settings
 from app.core.security import OPERATOR_API_KEY_HEADER
@@ -10,6 +14,7 @@ from app.services.evidence_service import (
     create_source,
     link_source,
     revoke_source,
+    exhibit_approval_issue,
 )
 from app.services.visitor_state_service import create_visitor_state
 
@@ -171,6 +176,29 @@ def test_source_content_change_invalidates_approval(client, db_session) -> None:
     assert "evidence content changed" in result["issues"]
 
 
+@pytest.mark.parametrize("field,new_value", [
+    ("title", "An unreviewed title"),
+    ("source_uri", "museum-archive:unreviewed-record"),
+])
+def test_source_metadata_change_invalidates_approval(client, db_session, field, new_value) -> None:
+    exhibit = _seed_exhibit(db_session)
+    _seed_session(db_session)
+    source = create_source(
+        db_session, source_id="S01", title="Archive record",
+        source_uri="museum-archive:S01", content_text="Museum-confirmed text.",
+    )
+    approve_source(db_session, source.id, reviewer="museum-reviewer")
+    link_source(db_session, exhibit.id, source.id)
+    approve_exhibit(db_session, exhibit.id, reviewer="museum-reviewer")
+    assert _review(client)["decision"] == "pass"
+
+    setattr(source, field, new_value)
+    db_session.commit()
+    result = _review(client)
+    assert result["decision"] == "block"
+    assert "evidence metadata changed after approval" in result["issues"]
+
+
 def test_fixture_cannot_be_approved(client, db_session) -> None:
     _seed_exhibit(db_session, exhibit_id="fixture-exhibit")
     from app.services.evidence_service import approve_exhibit
@@ -180,6 +208,47 @@ def test_fixture_cannot_be_approved(client, db_session) -> None:
         assert False, "Fixture approval must fail."
     except ValueError as exc:
         assert "Development fixtures" in str(exc)
+
+
+def test_fixture_source_cannot_back_an_approved_exhibit(db_session) -> None:
+    exhibit = _seed_exhibit(db_session)
+    source = create_source(
+        db_session, source_id="fixture-archive", title="Development fixture",
+        source_uri="fixture:archive", content_text="Synthetic test text.",
+    )
+    with pytest.raises(ValueError, match="fixture evidence"):
+        approve_source(db_session, source.id, reviewer="museum-reviewer")
+    link_source(db_session, exhibit.id, source.id)
+    source.status = "approved"
+    source.reviewed_by = "legacy-record"
+    source.reviewed_at = datetime.now(timezone.utc)
+    db_session.commit()
+    with pytest.raises(ValueError, match="approved evidence source"):
+        approve_exhibit(db_session, exhibit.id, reviewer="museum-reviewer")
+
+
+def test_legacy_fixture_link_invalidates_existing_exhibit_approval(db_session) -> None:
+    exhibit = _seed_exhibit(db_session)
+    create_source(
+        db_session, source_id="S01", title="Reviewed archive",
+        source_uri="museum:S01", content_text="Reviewed archive excerpt.",
+    )
+    approve_source(db_session, "S01", reviewer="museum-reviewer")
+    link_source(db_session, exhibit.id, "S01")
+    approve_exhibit(db_session, exhibit.id, reviewer="museum-reviewer")
+    assert exhibit_approval_issue(db_session, exhibit) is None
+
+    create_source(
+        db_session, source_id="fixture-old", title="Synthetic fixture",
+        source_uri="fixture:old", content_text="Synthetic test content.",
+    )
+    fixture = db_session.get(EvidenceSource, "fixture-old")
+    fixture.status = "approved"
+    fixture.reviewed_by = "legacy-record"
+    fixture.reviewed_at = datetime.now(timezone.utc)
+    db_session.commit()
+    link_source(db_session, exhibit.id, fixture.id)
+    assert "development fixture evidence" in exhibit_approval_issue(db_session, exhibit)
 
 
 def test_evidence_api_requires_operator_key(client, monkeypatch) -> None:

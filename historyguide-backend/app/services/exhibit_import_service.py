@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.exhibit import ExhibitCreate
 from app.services.audit_log_service import record_audit_log
+from app.models.evidence import EvidenceSource, ExhibitEvidenceLink
 from app.models.exhibit import Exhibit
 from app.services.exhibit_service import get_exhibit
 
@@ -78,6 +79,40 @@ def import_exhibit_batch(
         db.rollback()
         raise
     return records
+
+
+def import_exhibit_with_sources(
+    db: Session, exhibit: ExhibitCreate, *, source_ids: list[str], actor: str = "operator"
+) -> Exhibit:
+    """Create one draft exhibit and its existing-source links atomically."""
+    validate_exhibit_batch(db, [exhibit])
+    missing_source_ids = [source_id for source_id in source_ids if db.get(EvidenceSource, source_id) is None]
+    if missing_source_ids:
+        raise LookupError("Evidence sources were not found: " + ", ".join(sorted(missing_source_ids)))
+    record = Exhibit(**exhibit.model_dump())
+    try:
+        db.add(record)
+        db.add_all(
+            ExhibitEvidenceLink(exhibit_id=exhibit.id, source_id=source_id)
+            for source_id in source_ids
+        )
+        record_audit_log(
+            db,
+            action="exhibit_uploaded",
+            resource_type="exhibit",
+            resource_id=exhibit.id,
+            actor=actor,
+            details={"source_ids": source_ids, "status": "draft"},
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ExhibitImportError("Exhibit or source links changed during upload; retry.") from exc
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(record)
+    return record
 
 
 def validate_exhibits_for_import(db: Session, path: Path) -> list[ExhibitCreate]:

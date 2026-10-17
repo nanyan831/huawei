@@ -19,7 +19,7 @@ This example is a backend decision record only. It does not prove historical acc
 - Web/H5 origin: `https://museum-h5.example.test`
 - GeniOS environment: `genios-staging-example`
 - operator evidence package path: `docs/examples/operator_evidence_package.example.md`
-- final decision: `proceed_with_warnings`
+- final decision: `blocked`
 
 ## Required Evidence Attached
 
@@ -170,10 +170,10 @@ Decision:
 - `missing_exhibit_ids=[]`
 - `unsourced_exhibit_ids=[]`
 - preflight `ready_for_handoff=true`
-- generated explanation display: allowed by backend source-safety gate
-- gate result: pass
+- generated explanation display: blocked; no review/finalize evidence in this placeholder
+- gate result: blocked for visitor-facing answers
 
-This gate checks backend handoff data only. It does not define GeniOS prompts, does not run RAG, and does not judge generated historical prose.
+This placeholder records Handoff preflight only. A real visitor-facing pass also needs the matching review-run `finalize.answer`, claim-support assessment, and curator evidence; it does not define GeniOS prompts or run RAG.
 
 ## Gate 7: Monitoring And Incident Preparedness
 
@@ -214,7 +214,7 @@ Decision:
 
 ## Final Decision
 
-Decision: `proceed_with_warnings`
+Decision: `blocked`
 
 Allowed final decisions:
 
@@ -230,7 +230,8 @@ Warnings accepted:
 
 Blocking issues:
 
-- none in this placeholder example
+- placeholder evidence is not an actual environment record
+- no forced review/finalize output trace or curator claim-support evidence
 
 Rollback owner:
 

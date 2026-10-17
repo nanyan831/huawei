@@ -20,6 +20,7 @@ class EvidenceSource(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    approved_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class ExhibitEvidenceLink(Base):

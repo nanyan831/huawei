@@ -155,6 +155,59 @@ def test_exhibit_intake_and_governance_cycle(operator_client, db_session):
             "exhibit_evidence_linked", "exhibit_approved", "exhibit_approval_revoked"} <= actions
 
 
+def test_single_exhibit_upload_links_existing_sources_atomically(operator_client, db_session):
+    assert operator_client.post("/api/evidence/sources", json=SOURCE, headers=HEADERS).status_code == 201
+
+    response = operator_client.post(
+        "/api/evidence/exhibits",
+        json={"exhibit": EXHIBIT, "source_ids": ["S01"]},
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["source_ids"] == ["S01"]
+    assert response.json()["approval"] is None
+    assert response.json()["approval_issue"]
+    log = db_session.scalar(select(AuditLog).where(AuditLog.action == "exhibit_uploaded"))
+    assert log.resource_id == EXHIBIT["id"]
+    assert log.details == {"source_ids": ["S01"], "status": "draft"}
+
+
+def test_single_exhibit_upload_missing_source_writes_nothing(operator_client, db_session):
+    response = operator_client.post(
+        "/api/evidence/exhibits",
+        json={"exhibit": EXHIBIT, "source_ids": ["missing-source"]},
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 404
+    assert db_session.get(Exhibit, EXHIBIT["id"]) is None
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 0
+
+
+def test_single_exhibit_upload_rolls_back_if_audit_fails(
+    operator_client, db_session, monkeypatch,
+):
+    from app.services import exhibit_import_service
+
+    assert operator_client.post("/api/evidence/sources", json=SOURCE, headers=HEADERS).status_code == 201
+    audit_count = db_session.scalar(select(func.count()).select_from(AuditLog))
+
+    def fail_audit(*args, **kwargs):
+        raise RuntimeError("injected upload audit failure")
+
+    monkeypatch.setattr(exhibit_import_service, "record_audit_log", fail_audit)
+    with pytest.raises(RuntimeError, match="injected upload audit failure"):
+        operator_client.post(
+            "/api/evidence/exhibits",
+            json={"exhibit": EXHIBIT, "source_ids": ["S01"]},
+            headers=HEADERS,
+        )
+    db_session.commit()
+    assert db_session.get(Exhibit, EXHIBIT["id"]) is None
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == audit_count
+
+
 def test_exhibit_import_rejects_duplicate_ids_atomically(operator_client, db_session):
     for records in ([EXHIBIT, EXHIBIT],):
         response = operator_client.post("/api/evidence/exhibits/batch", json={"exhibits": records}, headers=HEADERS)

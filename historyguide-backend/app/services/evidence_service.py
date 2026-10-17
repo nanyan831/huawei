@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.evidence import EvidenceSource, ExhibitApproval, ExhibitEvidenceLink
 from app.models.exhibit import Exhibit
+from app.core.evidence_fingerprint import source_approval_fingerprint
 from app.schemas.evidence import EvidenceSourceCreate, EvidenceSourcePreview
 from app.services.audit_log_service import record_audit_log
 
@@ -113,18 +114,26 @@ def approve_source(db: Session, source_id: str, *, reviewer: str) -> EvidenceSou
     source = db.get(EvidenceSource, source_id)
     if source is None:
         raise LookupError(f"Evidence source '{source_id}' was not found.")
+    if source.id.startswith("fixture-") or source.source_uri.lower().startswith("fixture:"):
+        raise ValueError("Development fixture evidence cannot be approved for museum use.")
     if source.status == "revoked":
         raise ValueError("Revoked evidence cannot be approved again; create a new version.")
     if not _content_hash_matches(source):
         raise ValueError("Evidence content changed after its hash was recorded; create a new version.")
     try:
         source.status = "approved"
+        source.approved_fingerprint = source_approval_fingerprint(
+            source.id, source.title, source.source_uri, source.content_sha256
+        )
         source.reviewed_by = reviewer
         source.reviewed_at = datetime.now(timezone.utc)
         record_audit_log(
             db, action="evidence_source_approved", resource_type="evidence_source",
             resource_id=source_id, actor=reviewer,
-            details={"content_sha256": source.content_sha256},
+            details={
+                "content_sha256": source.content_sha256,
+                "approved_fingerprint": source.approved_fingerprint,
+            },
         )
         db.commit()
     except Exception:
@@ -184,10 +193,7 @@ def approve_exhibit(db: Session, exhibit_id: str, *, reviewer: str) -> ExhibitAp
     if not (exhibit.source_reference or "").strip():
         raise ValueError("Exhibit source_reference is required.")
     sources = _linked_sources(db, exhibit_id)
-    if not sources or any(
-        source.status != "approved" or not _content_hash_matches(source)
-        for source in sources
-    ):
+    if not sources or any(source_publication_issue(source) is not None for source in sources):
         raise ValueError("At least one linked, approved evidence source is required.")
     approval = db.get(ExhibitApproval, exhibit_id)
     if approval is None:
@@ -241,8 +247,16 @@ def exhibit_approval_issue(db: Session, exhibit: Exhibit) -> str | None:
     sources = _linked_sources(db, exhibit.id)
     if not sources or any(source.status != "approved" for source in sources):
         return f"Exhibit {exhibit.id} has missing or revoked evidence."
+    if any(source.id.startswith("fixture-") or source.source_uri.lower().startswith("fixture:") for source in sources):
+        return f"Exhibit {exhibit.id} has development fixture evidence."
+    if any(not source.reviewed_by or source.reviewed_at is None for source in sources):
+        return f"Exhibit {exhibit.id} has evidence without a museum review record."
+    if any(not source.title.strip() or not source.source_uri.strip() for source in sources):
+        return f"Exhibit {exhibit.id} has evidence without provenance."
     if any(not _content_hash_matches(source) for source in sources):
         return f"Exhibit {exhibit.id} has evidence content changed after approval."
+    if any(source_publication_issue(source) is not None for source in sources):
+        return f"Exhibit {exhibit.id} has evidence metadata changed after approval."
     if approval.approved_fingerprint != _fingerprint(exhibit, sources):
         return f"Exhibit {exhibit.id} changed after approval."
     return None
@@ -284,3 +298,21 @@ def _fingerprint(exhibit: Exhibit, sources: list[EvidenceSource]) -> str:
 
 def _content_hash_matches(source: EvidenceSource) -> bool:
     return hashlib.sha256(source.content_text.encode("utf-8")).hexdigest() == source.content_sha256
+
+
+def source_publication_issue(source: EvidenceSource) -> str | None:
+    if source.id.startswith("fixture-") or source.source_uri.lower().startswith("fixture:"):
+        return "development fixture evidence"
+    if source.status != "approved":
+        return "source is not approved"
+    if not source.reviewed_by or source.reviewed_at is None:
+        return "museum review record is missing"
+    if not source.title.strip() or not source.source_uri.strip() or not source.content_text.strip():
+        return "source provenance is missing"
+    if not _content_hash_matches(source):
+        return "source content changed after approval"
+    if source.approved_fingerprint != source_approval_fingerprint(
+        source.id, source.title, source.source_uri, source.content_sha256
+    ):
+        return "source approval fingerprint is missing or source metadata changed"
+    return None

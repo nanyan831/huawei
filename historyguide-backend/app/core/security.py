@@ -10,6 +10,8 @@ PUBLIC_PATHS = {
     "/openapi-genios-review.json",
     "/openapi-genios-runs.json",
     "/openapi-genios-history-runs.json",
+    "/openapi-genios-answers.json",
+    "/openapi-genios-sources.json",
     "/docs",
     "/docs/oauth2-redirect",
     "/redoc",
@@ -20,6 +22,15 @@ PUBLIC_PATHS = {
 
 API_KEY_HEADER = "X-HistoryGuide-Api-Key"
 OPERATOR_API_KEY_HEADER = "X-HistoryGuide-Operator-Key"
+
+VISITOR_TOKEN_PATHS = {
+    "/api/visitor/revoke",
+    "/api/visitor/me",
+    "/api/visitor/route",
+    "/api/visitor/visit-events",
+    "/api/visitor/answers/history",
+    "/api/visitor/answers/exhibit",
+}
 
 OPERATOR_PATHS = {
     "/api/system/access-policy",

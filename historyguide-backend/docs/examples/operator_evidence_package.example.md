@@ -149,9 +149,9 @@ Recorded results:
 - preflight `ready_for_handoff=true`
 - handoff request id: `example-handoff-001`
 - GeniOS consumed backend handoff package: `yes, placeholder example`
-- generated explanation display was allowed: `yes, placeholder example`
+- generated explanation display was allowed: `no; fixture-only placeholder, no review/finalize evidence`
 
-Generated explanation display is allowed only when `grounding_sources_complete=true` and `source_safety.ready_for_generation=true`.
+These legacy Handoff fields are preflight signals, not permission to display. Fixture records and absent review/finalize evidence require blocking generated explanation display, regardless of the placeholder values above.
 
 This package does not define GeniOS prompts, does not run RAG, and does not judge generated historical prose.
 

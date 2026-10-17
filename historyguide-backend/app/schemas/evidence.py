@@ -26,6 +26,7 @@ class EvidenceSourceRead(EvidenceSourceCreate):
     model_config = {"from_attributes": True}
 
     content_sha256: str
+    approved_fingerprint: str | None
     status: str
     reviewed_by: str | None
     reviewed_at: datetime | None
@@ -38,6 +39,7 @@ class EvidenceSourceSummary(BaseModel):
     title: str
     source_uri: str
     content_sha256: str
+    approved_fingerprint: str | None
     status: str
     reviewed_by: str | None
     reviewed_at: datetime | None
@@ -140,6 +142,23 @@ class EvidenceExhibitBatchCreate(BaseModel):
 class EvidenceExhibitBatchRead(BaseModel):
     count: int
     items: list[ExhibitRead]
+
+
+class EvidenceExhibitUpload(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    exhibit: OperatorExhibitCreate
+    source_ids: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("source_ids")
+    @classmethod
+    def validate_source_ids(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip() for value in values]
+        if any(not value or len(value) > 64 for value in normalized):
+            raise ValueError("Source IDs must be nonblank and at most 64 characters.")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("Source IDs must be unique.")
+        return normalized
 
 
 class EvidenceExhibitRead(BaseModel):

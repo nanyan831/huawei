@@ -13,6 +13,10 @@
   let listVersion = 0;
   let intakeVersion = 0;
   let detailVersion = 0;
+  let claimVersion = 0;
+  let claimDetailVersion = 0;
+  let claimOffset = 0;
+  let claimSelected = null;
   let preview = null;
   let selected = null;
   let writing = false;
@@ -47,6 +51,10 @@
     listVersion += 1;
     intakeVersion += 1;
     detailVersion += 1;
+    claimVersion += 1;
+    claimDetailVersion += 1;
+    claimSelected = null;
+    claimOffset = 0;
     $("operator-key").value = "";
     $("reviewer").value = "";
     $("workspace").hidden = true;
@@ -55,6 +63,13 @@
     $("connection-state").textContent = "尚未连接";
     $("records-body").replaceChildren();
     $("detail-dialog").close();
+    $("claim-dialog").close();
+    $("claim-rows").replaceChildren();
+    for (const id of ["claim-source-id", "claim-quote", "claim-text"]) $(id).value = "";
+    $("claim-source-content").textContent = "";
+    $("claim-detail-quote").textContent = "";
+    $("claim-detail-text").textContent = "";
+    $("claim-page-status").textContent = "尚未载入";
     $("detail-content").textContent = "";
     $("detail-title").textContent = "";
     $("reviewer-label").textContent = "";
@@ -62,11 +77,14 @@
     for (const id of ["draft-count", "approved-count", "exhibit-count"]) $(id).textContent = "—";
     $("batch-json").value = "";
     $("batch-file").value = "";
+    $("single-exhibit-form").reset();
+    $("exhibit-importance").value = "3";
     $("preview-batch").disabled = false;
     $("page-status").textContent = "尚未载入";
     $("previous").disabled = true;
     $("next").disabled = true;
     invalidatePreview();
+    updateSingleExhibitForm();
   }
 
   async function api(path, { method = "GET", payload } = {}) {
@@ -110,6 +128,7 @@
   function formatDate(value) { return value ? new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "尚未审核"; }
 
   async function refresh() {
+    if (tab === "claims") return refreshClaims();
     const version = ++listVersion;
     const currentTab = tab;
     const filter = $("status-filter").value;
@@ -192,6 +211,73 @@
     }
   }
 
+  async function refreshClaims() {
+    const version = ++claimVersion;
+    const filter = $("claim-status-filter").value;
+    $("refresh-claims").disabled = true;
+    $("claim-previous").disabled = true;
+    $("claim-next").disabled = true;
+    $("claim-page-status").textContent = "正在载入…";
+    $("claim-rows").replaceChildren();
+    try {
+      const page = await api(`evidence/claim-support?limit=${PAGE_SIZE}&offset=${claimOffset}${filter ? `&status=${filter}` : ""}`);
+      if (version !== claimVersion || tab !== "claims") return;
+      if (!page.items.length) {
+        const row = document.createElement("tr");
+        const cell = textNode("td", "暂无审核记录。", "empty-cell"); cell.colSpan = 4; row.append(cell);
+        $("claim-rows").append(row);
+      }
+      for (const item of page.items) {
+        const row = document.createElement("tr");
+        const summary = document.createElement("td");
+        summary.append(textNode("span", item.source_id, "record-uri"), textNode("span", item.claim_text, "record-name"));
+        const state = document.createElement("td"); state.append(badge(item.status));
+        const action = document.createElement("td");
+        const button = textNode("button", "核对详情", "table-link"); button.type = "button";
+        button.addEventListener("click", () => openClaimDetail(item.id).catch((error) => report(error)));
+        action.append(button);
+        row.append(summary, state, textNode("td", item.reviewed_by || "—"), action);
+        $("claim-rows").append(row);
+      }
+      $("claim-previous").disabled = claimOffset === 0;
+      $("claim-next").disabled = claimOffset + PAGE_SIZE >= page.total;
+      $("claim-page-status").textContent = `${page.total} 条记录 · 第 ${Math.floor(claimOffset / PAGE_SIZE) + 1} 页`;
+    } catch (error) { if (version === claimVersion || (!key && !isCancelled(error))) report(error); }
+    finally { if (version === claimVersion) $("refresh-claims").disabled = false; }
+  }
+
+  function updateClaimButtons() {
+    const confirmed = claimSelected && $("claim-confirm").checked && !writing;
+    $("approve-claim").disabled = !confirmed || claimSelected.status !== "draft" || !claimSelected.sourceCurrent;
+    $("revoke-claim").disabled = !confirmed || claimSelected.status !== "approved";
+  }
+
+  async function openClaimDetail(id) {
+    const version = ++claimDetailVersion;
+    claimSelected = null;
+    $("claim-confirm").checked = false;
+    updateClaimButtons();
+    const review = await api(`evidence/claim-support/${encodeURIComponent(id)}`);
+    if (version !== claimDetailVersion || !key) return;
+    const source = await api(`evidence/sources/${encodeURIComponent(review.source_id)}`);
+    if (version !== claimDetailVersion || !key) return;
+    const sourceCurrent = source.status === "approved" && source.approved_fingerprint === review.source_fingerprint;
+    claimSelected = { id, status: review.status, sourceCurrent };
+    $("claim-detail-title").textContent = `${review.source_id} · 声明审核`;
+    $("claim-detail-meta").replaceChildren(
+      textNode("div", `来源：${source.title} · ${source.source_uri}`),
+      textNode("div", `状态：${statusNames[review.status]} · 审核人：${review.reviewed_by || "—"} · ${formatDate(review.reviewed_at)}`),
+      textNode("div", sourceCurrent ? "来源版本与审核记录一致" : "来源版本或审批状态已变更，不能批准此候选"),
+    );
+    $("claim-source-content").textContent = source.content_text;
+    $("claim-detail-quote").textContent = review.evidence_quote;
+    $("claim-detail-text").textContent = review.claim_text;
+    $("claim-reviewer-label").textContent = `本次审核人：${reviewer}`;
+    $("claim-detail-notice").hidden = true;
+    updateClaimButtons();
+    if (!$("claim-dialog").open) $("claim-dialog").showModal();
+  }
+
   function invalidatePreview() {
     intakeVersion += 1;
     $("preview-batch").disabled = false;
@@ -200,6 +286,15 @@
     $("preview-items").replaceChildren();
     $("intake-confirm").checked = false;
     $("import-batch").disabled = true;
+  }
+
+  function splitTerms(value) {
+    return value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean);
+  }
+
+  function updateSingleExhibitForm() {
+    $("single-exhibit-form").hidden = $("batch-kind").value !== "exhibits";
+    $("upload-single-exhibit").disabled = !$("single-exhibit-confirm").checked || writing;
   }
 
   function parseBatch() {
@@ -244,6 +339,7 @@
     invalidatePreview();
     $("batch-file").value = "";
     $("format-example").textContent = JSON.stringify(formats[$("batch-kind").value], null, 2);
+    updateSingleExhibitForm();
   });
   $("batch-file").addEventListener("change", async () => {
     invalidatePreview();
@@ -300,6 +396,46 @@
         writing = false;
         $("import-batch").disabled = !preview || !$("intake-confirm").checked;
       }
+    }
+  });
+
+  $("single-exhibit-confirm").addEventListener("change", updateSingleExhibitForm);
+  $("single-exhibit-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (writing || !$("single-exhibit-confirm").checked) return;
+    const form = event.currentTarget;
+    const sourceIds = splitTerms($("exhibit-source-ids").value);
+    if (sourceIds.length > 20) { showMessage("每件展品最多关联 20 个来源 ID。", true); return; }
+    if (new Set(sourceIds).size !== sourceIds.length) { showMessage("关联来源 ID 不能重复。", true); return; }
+    const payload = {
+      exhibit: {
+        id: $("exhibit-id").value.trim(),
+        name: $("exhibit-name").value.trim(),
+        description: $("exhibit-description").value.trim(),
+        period: $("exhibit-period").value.trim(),
+        importance: Number($("exhibit-importance").value),
+        source_reference: $("exhibit-source-reference").value.trim(),
+        keywords: splitTerms($("exhibit-keywords").value),
+        people: splitTerms($("exhibit-people").value),
+        themes: splitTerms($("exhibit-themes").value),
+        time_range: $("exhibit-time-range").value.trim() || null,
+      },
+      source_ids: sourceIds,
+    };
+    const startedEpoch = epoch;
+    writing = true;
+    updateSingleExhibitForm();
+    try {
+      const result = await api("evidence/exhibits", { method: "POST", payload });
+      if (startedEpoch !== epoch) return;
+      form.reset();
+      $("exhibit-importance").value = "3";
+      updateSingleExhibitForm();
+      showMessage(`展品 ${result.exhibit.id} 已保存为待审核记录，并关联 ${result.source_ids.length} 个来源。`);
+      document.querySelector('[data-tab="exhibits"]').click();
+    } catch (error) { report(error); }
+    finally {
+      if (startedEpoch === epoch) { writing = false; updateSingleExhibitForm(); }
     }
   });
 
@@ -401,6 +537,65 @@
     }
   });
 
+  $("claim-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (writing || !key) return;
+    const startedEpoch = epoch;
+    const payload = {
+      source_id: $("claim-source-id").value.trim(),
+      evidence_quote: $("claim-quote").value.trim(),
+      claim_text: $("claim-text").value.trim(),
+    };
+    writing = true;
+    $("create-claim").disabled = true;
+    try {
+      await api("evidence/claim-support", { method: "POST", payload });
+      if (startedEpoch !== epoch) return;
+      $("claim-quote").value = "";
+      $("claim-text").value = "";
+      claimOffset = 0;
+      $("claim-status-filter").value = "draft";
+      showMessage("候选已创建，尚未获得支持审批。请打开详情核对完整来源。");
+      await refreshClaims();
+    } catch (error) { report(error); }
+    finally { if (startedEpoch === epoch) { writing = false; $("create-claim").disabled = false; } }
+  });
+
+  $("claim-confirm").addEventListener("change", updateClaimButtons);
+  $("close-claim").addEventListener("click", () => $("claim-dialog").close());
+  $("claim-dialog").addEventListener("close", () => {
+    claimDetailVersion += 1; claimSelected = null; $("claim-confirm").checked = false; updateClaimButtons();
+  });
+  for (const action of ["approve", "revoke"]) {
+    $(`${action}-claim`).addEventListener("click", async () => {
+      if (!claimSelected || !$("claim-confirm").checked || writing) return;
+      const { id } = claimSelected;
+      const version = claimDetailVersion;
+      const startedEpoch = epoch;
+      writing = true;
+      updateClaimButtons();
+      try {
+        await api(`evidence/claim-support/${encodeURIComponent(id)}/${action}`, {
+          method: "POST",
+          payload: action === "approve" ? { reviewer, support_confirmed: true } : { reviewer },
+        });
+        if (version === claimDetailVersion && $("claim-dialog").open) {
+          await openClaimDetail(id);
+          showMessage(action === "approve" ? "已批准该声明支持关系。" : "已撤销支持；新答案不能再使用该审核记录。", false, "claim-detail-notice");
+        }
+        $("claim-status-filter").value = "";
+        claimOffset = 0;
+        await refreshClaims();
+      } catch (error) { report(error, $("claim-dialog").open ? "claim-detail-notice" : "notice"); }
+      finally { if (startedEpoch === epoch) { writing = false; updateClaimButtons(); } }
+    });
+  }
+
+  $("claim-status-filter").addEventListener("change", () => { claimOffset = 0; refreshClaims(); });
+  $("refresh-claims").addEventListener("click", refreshClaims);
+  $("claim-previous").addEventListener("click", () => { claimOffset = Math.max(0, claimOffset - PAGE_SIZE); refreshClaims(); });
+  $("claim-next").addEventListener("click", () => { claimOffset += PAGE_SIZE; refreshClaims(); });
+
   document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => {
     tab = button.dataset.tab;
     offset = 0;
@@ -409,6 +604,14 @@
       node.classList.toggle("active", active);
       if (active) node.setAttribute("aria-current", "page"); else node.removeAttribute("aria-current");
     });
+    $("claims-panel").hidden = tab !== "claims";
+    document.querySelector(".workspace-grid").hidden = tab === "claims";
+    if (tab === "claims") { refreshClaims(); return; }
+    if (tab === "sources" || tab === "exhibits") {
+      $("batch-kind").value = tab;
+      $("format-example").textContent = JSON.stringify(formats[tab], null, 2);
+      updateSingleExhibitForm();
+    }
     $("records-title").textContent = { sources: "来源资料", exhibits: "展品资料", audit: "操作记录" }[tab];
     $("source-filters").hidden = tab !== "sources";
     $("intake-panel").hidden = tab === "audit";
@@ -423,4 +626,5 @@
   $("previous").addEventListener("click", () => { offset = Math.max(0, offset - PAGE_SIZE); refresh(); });
   $("next").addEventListener("click", () => { offset += PAGE_SIZE; refresh(); });
   $("format-example").textContent = JSON.stringify(formats.sources, null, 2);
+  updateSingleExhibitForm();
 })();

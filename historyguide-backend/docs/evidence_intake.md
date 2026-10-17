@@ -2,13 +2,24 @@
 
 The cleaned public-source package is a research lead, not a curator-approved corpus. Its `manifest.json` says `staff_review_required` and `direct_database_import_allowed=false`; `sources.cleaned.json` lists source metadata and URLs, not the full inspected source text. Do not auto-approve those records or label their knowledge-base chunks as verified museum evidence.
 
+## Test knowledge-base import audit
+
+`data/knowledge_bases/测试样例/manifest.json` recommends ten uploads: `00_` through `08_` plus `99_来源索引.md`. The eleventh Markdown file, `测试样例_完整知识库.md`, is an alternative single-file import, not an additional document. A prior read-only Coze UI observation showed 11 files in the attached test knowledge base, but a count alone does not identify the extra file or prove that the displayed corpus matches this package.
+
+Run `python scripts/audit_test_knowledge_base.py` to verify local file hashes. To audit Coze, first copy the **actual document filenames** from its file list into a UTF-8 text file, one per line, and run `python scripts/audit_test_knowledge_base.py --uploaded-list <path>`. Without `--uploaded-list`, `platform_verified=false` even when local hashes pass. If the complete backup is among ten topic/index documents, disable or remove that duplicate only after checking the live document list and any dependencies; do not infer deletion targets from the count. This audit does not validate Coze chunking, retrieval quality, curator approval, or a real backend/Coze source-ID mapping.
+
 ## Operator workflow
 
 1. Open the original university or museum record and capture a focused, exact excerpt. Record a stable source ID that matches the citation ID used in NK-GeniOS, a descriptive title, and the original URI or museum archive reference. Do not use fixture content.
 2. Validate up to 20 records with `POST /api/evidence/sources/batch/preview`, check titles, original URIs, excerpt lengths and SHA-256 values, then submit the same reviewed records to `POST /api/evidence/sources/batch`. Preview does not write sources or audit logs and does not reserve IDs; import validates conflicts again. The whole batch is rejected on duplicate IDs and every accepted record starts as `draft`. Source rows and their import audit events commit together; an audit insert failure rolls the batch back. This endpoint does **not** import into the Coze knowledge base or approve material.
 3. Inspect `GET /api/evidence/sources?status=draft` and `GET /api/evidence/sources/{source_id}`. The list omits the full text; detail returns it for staff review. Both require `X-HistoryGuide-Operator-Key`.
 4. After a museum reviewer has checked the exact text and provenance, approve a source through `POST /api/evidence/sources/{source_id}/approve`. A reviewer name string is recorded for audit but is not identity verification; operational policy must authenticate the actual reviewer separately. Revoked records need new version IDs.
+   Current approval also fingerprints the reviewed title and original URI together with the content hash. After migration `0007_source_approval_fingerprint`, older approved rows have no fingerprint and remain unavailable until the curator rechecks and reapproves them; do not backfill a fingerprint without review. Later title/URI edits invalidate the source and all dependent exhibit/history answers.
 5. Confirm the backend approved ID matches the citation marker exposed to the Agent. For exhibit answers, also link the source to a real exhibit and approve that exhibit. For general history answers, approved sources can be passed to `/api/genios/history-runs` without inventing an exhibit ID.
+
+An optional business-key-only `POST /api/genios/sources/search` accepts 1-5 literal keywords and returns only publishable approved source excerpts. It is a bounded discovery aid for the Agent, not a substitute for curator review, Coze source-ID mapping, or a semantic retrieval index. It searches titles and only the first 8,000 characters of source text; a non-match is inconclusive. The API returns no draft or revoked source text and does not disclose the operator-only evidence detail endpoint.
+
+Search orders matching candidates by simple lexical score and stable ID, then checks each candidate's current publication gate until the requested 1-5 valid excerpts are found. Invalid legacy records cannot consume a fixed first page and hide a later valid source. This is still a database scan over matching approved-status records; evaluate latency with the real corpus and enforce request rate limits at the trusted proxy before public use.
 
 For staging, run the read-only database check with each Coze citation ID that a test answer requires:
 

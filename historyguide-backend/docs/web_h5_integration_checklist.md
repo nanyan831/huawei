@@ -25,17 +25,19 @@ Stop integration if the profile reports failed security, CORS, database, or logg
 
 ## 2. Browser And Header Gate
 
-From the Web/H5 origin, verify that browser requests can reach the backend only when the origin is explicitly allowed:
+For an isolated direct-browser staging test, verify that browser requests can reach the backend only when the origin is explicitly allowed:
 
 ```text
 HISTORYGUIDE_CORS_ORIGINS=https://your-h5-origin.example
 ```
 
-When API key protection is enabled, Web/H5 requests to business APIs must include:
+When API key protection is enabled, the trusted server-side gateway (or GeniOS integration), not visitor-side JavaScript, must include:
 
 ```http
 X-HistoryGuide-Api-Key: <configured-api-key>
 ```
+
+Do not place a shared business or operator key in browser code, storage, QR codes, or a public app. The optional session-token gateway in `docs/visitor_gateway.md` is implemented locally but disabled by default and not deployed. A trusted issuer must create the session and grant a scoped token; the browser never sees the backend key. Production still requires HTTPS, audited token delivery, proxy rate limits, Coze model integration and forced final-answer display. CORS is not authentication. Direct-browser tests using the shared key must use only disposable keys in isolated staging and cannot establish production readiness.
 
 Web/H5 may send a stable request id for client/backend log correlation:
 
@@ -47,7 +49,7 @@ Every response should return `X-HistoryGuide-Request-Id`. Treat it as troublesho
 
 ## 3. Public And Operator Probe Gate
 
-Before creating a visit session, verify deployment probes and access boundaries:
+Before creating a visit session, trusted deployment tooling (not the visitor browser) should verify probes and access boundaries:
 
 ```http
 GET /health
@@ -57,7 +59,7 @@ GET /api/system/access-policy
 GET /api/system/security-status
 ```
 
-For protected operator endpoints, send:
+From trusted operator tooling, send:
 
 ```http
 X-HistoryGuide-Operator-Key: <configured-operator-key>
@@ -73,7 +75,7 @@ Expected result:
 
 ## 4. Real Visit Session Gate
 
-Create exactly one Visitor State session for one physical visit:
+Have the trusted gateway create exactly one Visitor State session for one physical visit:
 
 ```http
 POST /api/visitor-states
@@ -153,7 +155,7 @@ These responses are structured data only. They are not natural-language museum e
 
 ## 8. GeniOS Handoff Gate
 
-Before GeniOS generates a personalized explanation, Web/H5 or the GeniOS integration layer should verify:
+Before GeniOS drafts a personalized explanation, the trusted integration should verify:
 
 ```http
 GET /api/genios/context/{session_id}
@@ -177,7 +179,7 @@ Stop generated explanation when:
 - `unsourced_exhibit_ids` is not empty
 - preflight reports a failed grounding or integrity check
 
-The backend prepares context and source-safety signals. GeniOS remains responsible for dialogue, RAG retrieval, knowledge grounding, and generated explanation content.
+These are preflight signals, not permission to display a draft. For an exhibit/route answer, require `POST /api/genios/runs` -> `review` -> `finalize`; for general history, use `/api/genios/history-runs` -> `review` -> `finalize`. Only the applicable finalize response's `answer` may reach Web/H5. The forced output workflow/gateway is not yet deployed. GeniOS remains responsible for dialogue, RAG retrieval, knowledge grounding, and drafting.
 
 ## 9. Logging Evidence Gate
 
@@ -190,6 +192,7 @@ For every integration run, preserve:
 - scanned exhibit id
 - `source_safety.ready_for_generation`
 - `grounding_sources_complete`
+- run id, review decision, and finalize outcome (no draft or source text in routine logs)
 - related centralized request log entry, when available
 
 Use `docs/centralized_logging.md` for JSON log field names and redaction rules.
@@ -207,6 +210,8 @@ Stop the Web/H5 integration run and fix data, configuration, or client behavior 
 - real exhibit records have empty `source_reference`.
 - `source_safety.ready_for_generation=false`.
 - `grounding_sources_complete=false`.
+- the answer bypasses review/finalize, or review/finalize returns `401`, `409`, timeout, or failure.
+- a shared business or operator key is present in visitor-side code or storage.
 - request ids are not captured by Web/H5 logs and backend logs.
 
 ## 11. Boundary Reminder

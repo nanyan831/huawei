@@ -141,7 +141,8 @@ Record:
 - `missing_exhibit_ids`:
 - `unsourced_exhibit_ids`:
 - preflight `ready_for_handoff`:
-- generated explanation display allowed by backend source-safety gate: yes/no
+- review-run id, review decision, finalize status and request id (when an answer was shown):
+- generated explanation displayed only from matching `finalize.answer`: yes/no/not applicable
 - GeniOS consumed backend handoff package: yes/no/unknown
 
 This review does not judge generated historical prose, does not define GeniOS prompts, and does not run RAG.

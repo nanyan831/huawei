@@ -1,6 +1,6 @@
 # MVP Handoff
 
-This document summarizes the current NK HistoryGuide backend MVP state.
+This document records the earlier backend MVP handoff, not current visitor-facing release readiness. For current gates use `docs/agent_architecture_2026.md` and `../../PROJECT_ROADMAP.md`; Handoff preflight alone is not an answer-release gate.
 
 ## Project Boundary
 
@@ -627,11 +627,11 @@ Frontend or Web/H5:
 - scan or choose exhibit
 - create and update Visitor State
 - record exhibit-entry events through the visit event API
-- use `source_safety.ready_for_generation` before displaying GeniOS generated explanation
+- use `source_safety.ready_for_generation` as a preflight signal before drafting; display only the applicable review-run `finalize.answer`
 - follow `docs/web_h5_integration_checklist.md` for CORS, API key headers, request id evidence, visit-event recording, GeniOS handoff gates, and stop conditions
 - display exhibit metadata
 - display recommendations
-- pass GeniOS generated explanation to the user
+- pass only a successfully finalized answer to the user
 
 Future backend enhancements:
 

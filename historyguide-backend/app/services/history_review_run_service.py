@@ -15,6 +15,7 @@ from app.schemas.history_review_run import (
     HistoryReviewRequest,
 )
 from app.services.audit_log_service import record_audit_log
+from app.services.evidence_service import source_publication_issue
 
 
 RUN_LIFETIME = timedelta(minutes=15)
@@ -87,8 +88,15 @@ def review_history_run(
         quote = _normalize(citation.evidence_quote)
         if len(quote) < 8 or quote not in _normalize(source.content_text):
             issues.append(f"Quote for {citation.source_id} is absent from approved source text.")
-        if f"[{citation.source_id}]" not in request.draft_answer:
-            issues.append(f"Draft answer does not cite [{citation.source_id}].")
+        if _normalize(citation.claim_text) not in quote:
+            issues.append(f"Claim for {citation.source_id} is not an exact excerpt of its evidence quote.")
+    if request.citations:
+        expected_answer = " ".join(
+            f"{citation.claim_text.strip()}[{citation.source_id}]"
+            for citation in request.citations
+        )
+        if _normalize_cited_answer(request.draft_answer) != _normalize_cited_answer(expected_answer):
+            issues.append("Draft answer contains text without an exact attributed claim.")
     draft_sha256 = _sha256(request.draft_answer)
     decision = "revise" if issues else "pass"
     safe_answer = (
@@ -122,7 +130,11 @@ def review_history_run(
             "decision": decision,
             "draft_sha256": draft_sha256,
             "citations": [
-                {"source_id": citation.source_id, "quote_sha256": _sha256(citation.evidence_quote)}
+                {
+                    "source_id": citation.source_id,
+                    "quote_sha256": _sha256(citation.evidence_quote),
+                    "claim_sha256": _sha256(citation.claim_text),
+                }
                 for citation in request.citations
             ],
         },
@@ -132,7 +144,10 @@ def review_history_run(
     return run
 
 
-def finalize_history_run(db: Session, run_id: str, *, draft_answer: str) -> HistoryReviewRun:
+def finalize_history_run(
+    db: Session, run_id: str, *, draft_answer: str,
+    claim_support_review_ids: list[str] | None = None,
+) -> HistoryReviewRun:
     run = _current_run(db, run_id)
     if run.status != "reviewed" or run.decision != "pass":
         raise ValueError("Run has no finalizable review decision.")
@@ -159,7 +174,7 @@ def finalize_history_run(db: Session, run_id: str, *, draft_answer: str) -> Hist
         action="history_review_run_finalized",
         resource_type="history_review_run",
         resource_id=run.id,
-        details={"decision": run.decision},
+        details={"decision": run.decision, "claim_support_review_ids": claim_support_review_ids or []},
     )
     db.commit()
     db.refresh(run)
@@ -189,10 +204,8 @@ def _approved_sources(db: Session, source_ids: list[str]) -> list[EvidenceSource
     sources: list[EvidenceSource] = []
     for source_id in source_ids:
         source = db.get(EvidenceSource, source_id)
-        if source is None or source.status != "approved" or source.id.startswith("fixture-"):
+        if source is None or source_publication_issue(source) is not None:
             raise ValueError(f"Source {source_id} is not approved for history answers.")
-        if _sha256(source.content_text) != source.content_sha256:
-            raise ValueError(f"Source {source_id} changed after approval.")
         sources.append(source)
     return sources
 
@@ -213,6 +226,10 @@ def _snapshot_sha256(sources: list[EvidenceSource]) -> str:
 
 def _normalize(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _normalize_cited_answer(value: str) -> str:
+    return re.sub(r"\s+\[", "[", _normalize(value))
 
 
 def _sha256(value: str) -> str:

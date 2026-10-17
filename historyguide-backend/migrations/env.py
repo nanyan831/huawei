@@ -13,6 +13,8 @@ from app.models import history_review_run  # noqa: F401
 from app.models import exhibit  # noqa: F401
 from app.models import review_run  # noqa: F401
 from app.models import visitor_state  # noqa: F401
+from app.models import visitor_access_grant  # noqa: F401
+from app.models import claim_support_review  # noqa: F401
 
 
 config = context.config

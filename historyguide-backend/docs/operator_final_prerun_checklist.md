@@ -135,7 +135,7 @@ GET /api/genios/preflight/{session_id}
 GET /api/genios/handoff/{session_id}
 ```
 
-Generated explanation display is allowed by the backend gate only when:
+Before drafting an explanation, confirm these necessary backend preflight checks:
 
 - `grounding_sources_complete=true`
 - `source_safety.ready_for_generation=true`
@@ -144,7 +144,7 @@ Generated explanation display is allowed by the backend gate only when:
 - preflight `ready_for_handoff=true`
 - `X-HistoryGuide-Request-Id` values are preserved across backend, Web/H5, GeniOS, and operator notes
 
-Stop generated explanation display when `grounding_sources_complete=false`, `source_safety.ready_for_generation=false`, any grounding exhibit is unsourced, any referenced exhibit id is missing, or request ids cannot be correlated.
+Display only the matching review-run `finalize.answer` after a successful prepare -> review -> finalize sequence enforced by a workflow or trusted gateway. Stop display when any preflight check fails, review/finalize is skipped or fails, a snapshot is stale, or request ids cannot be correlated. Handoff readiness alone never authorizes display.
 
 ## Gate 6: Monitoring And Incident Readiness
 

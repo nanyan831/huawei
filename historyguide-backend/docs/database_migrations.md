@@ -23,6 +23,8 @@ Migration scaffold now available:
 - `migrations/versions/0003_evidence_governance.py`
 - `migrations/versions/0004_review_runs.py`
 - `migrations/versions/0005_history_review_runs.py`
+- `migrations/versions/0006_visitor_access_grants.py`
+- `migrations/versions/0007_source_approval_fingerprint.py`
 
 This scaffold does not make PostgreSQL production-ready by itself.
 
@@ -42,7 +44,7 @@ The second migration creates:
 
 It also creates indexes for audit action, actor, resource type, and resource id filters.
 
-The third migration creates reviewed evidence sources, exhibit/source links, and exhibit approvals. The fourth adds snapshot-bound exhibit answer runs. The fifth adds approved-source runs for general history questions. These migrations define the local schema; they are not evidence that a remote staging or production database has been migrated.
+The third migration creates reviewed evidence sources, exhibit/source links, and exhibit approvals. The fourth adds snapshot-bound exhibit answer runs. The fifth adds approved-source runs for general history questions. The sixth adds revocable visitor grants. The seventh stores a source approval fingerprint over ID, title, URI, and content hash. It deliberately leaves existing approved rows without a fingerprint; they fail the publication gate until a curator rechecks the original and reapproves them. These migrations define the local schema; they are not evidence that a remote staging or production database has been migrated.
 
 ## Install Dependencies
 
@@ -135,6 +137,10 @@ The validator checks:
 It connects to the configured `HISTORYGUIDE_DATABASE_URL` or a trusted `--database-url` override. It does not run migrations, import records, write audit logs, validate historical accuracy, run RAG, or generate explanation content.
 
 ## Staging Gate
+
+The current Alembic head includes `0008_claim_support_reviews`. This table stores operator-submitted human support decisions tied to the approved source fingerprint. It does not auto-approve existing claims or prove semantic entailment. Set `HISTORYGUIDE_CLAIM_SUPPORT_REQUIRED=true` for staging and production validation; leave it false only for isolated legacy/local tests.
+
+After migration, run `python scripts\verify_postgres_claim_release_lock.py --acknowledge-staging-write-test` on an isolated PostgreSQL staging database. The probe intentionally creates one synthetic source and claim approval, checks multi-connection release/revocation serialization, and cleans its records by default. It refuses SQLite and must never be pointed at production.
 
 Before using migrations in a production-like environment:
 

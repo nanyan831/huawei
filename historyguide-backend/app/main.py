@@ -8,10 +8,14 @@ from starlette.responses import Response
 from app.api.routes.audit_logs import router as audit_logs_router
 from app.api.routes.evidence import router as evidence_router
 from app.api.routes.exhibits import router as exhibits_router
+from app.api.routes.genios_answers import router as genios_answers_router
+from app.api.routes.genios_answers_openapi import router as genios_answers_openapi_router
 from app.api.routes.genios_context import router as genios_context_router
 from app.api.routes.genios_history_openapi import router as genios_history_openapi_router
 from app.api.routes.genios_openapi import router as genios_openapi_router
 from app.api.routes.genios_runs_openapi import router as genios_runs_openapi_router
+from app.api.routes.genios_sources import router as genios_sources_router
+from app.api.routes.genios_sources_openapi import router as genios_sources_openapi_router
 from app.api.routes.health import router as health_router
 from app.api.routes.operator_ui import router as operator_ui_router
 from app.api.routes.history_review_runs import router as history_review_runs_router
@@ -20,6 +24,7 @@ from app.api.routes.review_runs import router as review_runs_router
 from app.api.routes.route_plans import router as route_plans_router
 from app.api.routes.visit_summaries import router as visit_summaries_router
 from app.api.routes.visitor_states import router as visitor_states_router
+from app.api.routes.visitor_gateway import router as visitor_gateway_router
 from app.core.config import settings
 from app.core.evidence_body_limit import EvidenceBodyLimitMiddleware
 from app.core.logging import configure_logging
@@ -28,6 +33,7 @@ from app.core.security import (
     API_KEY_HEADER,
     OPERATOR_API_KEY_HEADER,
     PUBLIC_PATHS,
+    VISITOR_TOKEN_PATHS,
     access_key_matches,
     is_operator_path,
 )
@@ -36,6 +42,15 @@ from app.database.init_db import init_db
 
 def create_app() -> FastAPI:
     configure_logging()
+    if settings.visitor_gateway_enabled:
+        if not settings.api_key or not settings.visitor_signing_key:
+            raise ValueError("Visitor gateway requires business and visitor signing keys.")
+        if settings.visitor_signing_key in (settings.api_key, settings.api_key_next, settings.operator_api_key):
+            raise ValueError("Visitor signing key must be separate from other API keys.")
+        if len(settings.visitor_signing_key.encode("utf-8")) < 32:
+            raise ValueError("Visitor signing key must contain at least 32 UTF-8 bytes.")
+        if not 5 <= settings.visitor_token_ttl_minutes <= 480:
+            raise ValueError("Visitor token lifetime must be between 5 and 480 minutes.")
     init_db(schema_mode=settings.schema_mode)
 
     app = FastAPI(
@@ -66,12 +81,17 @@ def create_app() -> FastAPI:
     app.include_router(operator_ui_router)
     app.include_router(exhibits_router)
     app.include_router(visitor_states_router)
+    app.include_router(visitor_gateway_router)
     app.include_router(recommendations_router)
     app.include_router(review_runs_router)
     app.include_router(history_review_runs_router)
+    app.include_router(genios_answers_router)
+    app.include_router(genios_answers_openapi_router)
     app.include_router(genios_context_router)
     app.include_router(genios_openapi_router)
     app.include_router(genios_runs_openapi_router)
+    app.include_router(genios_sources_router)
+    app.include_router(genios_sources_openapi_router)
     app.include_router(genios_history_openapi_router)
     app.include_router(visit_summaries_router)
     app.include_router(route_plans_router)
@@ -80,6 +100,16 @@ def create_app() -> FastAPI:
 
 async def require_access_keys(request: Request, call_next: Callable[[Request], Response]) -> Response:
     settings = request.app.state.settings
+    visitor_path = request.url.path
+    if visitor_path.startswith("/api/visitor/") and visitor_path not in {
+        "/api/visitor/grants", "/api/visitor/grants/revoke"
+    }:
+        if not settings.visitor_gateway_enabled:
+            return JSONResponse(status_code=404, content={"detail": "Visitor gateway is disabled."})
+        if visitor_path in VISITOR_TOKEN_PATHS or visitor_path.startswith("/api/visitor/exhibits/"):
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            return response
     if request.method == "OPTIONS" or request.url.path in PUBLIC_PATHS:
         return await call_next(request)
 

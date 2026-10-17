@@ -30,6 +30,15 @@ def test_openapi_contains_core_mvp_paths() -> None:
         "/api/visitor-states/{session_id}",
         "/api/visitor-states/{session_id}/integrity",
         "/api/visitor-states/{session_id}/visit-events",
+        "/api/visitor/grants",
+        "/api/visitor/grants/revoke",
+        "/api/visitor/revoke",
+        "/api/visitor/me",
+        "/api/visitor/route",
+        "/api/visitor/visit-events",
+        "/api/visitor/exhibits/{exhibit_id}",
+        "/api/visitor/answers/history",
+        "/api/visitor/answers/exhibit",
         "/api/recommendations/{session_id}",
         "/api/genios/capabilities",
         "/api/genios/context/{session_id}",
@@ -49,6 +58,9 @@ def test_openapi_contains_core_mvp_paths() -> None:
         "/openapi-genios-review.json",
         "/openapi-genios-runs.json",
         "/openapi-genios-history-runs.json",
+        "/openapi-genios-answers.json",
+        "/openapi-genios-sources.json",
+        "/api/genios/sources/search",
         "/api/visits/{session_id}/summary",
         "/api/visit-routes/{session_id}/plan",
     }
@@ -153,6 +165,7 @@ def test_genios_runs_openapi_matches_snapshot_workflow() -> None:
     assert spec["components"]["securitySchemes"]["HistoryGuideApiKey"]["name"] == "X-HistoryGuide-Api-Key"
     citations = spec["components"]["schemas"]["ReviewRunRequest"]["properties"]["citations"]
     assert citations["items"]["$ref"] == "#/components/schemas/EvidenceCitation"
+    assert "claim_text" in spec["components"]["schemas"]["EvidenceCitation"]["required"]
 
 
 def test_genios_history_runs_openapi_requires_approved_sources() -> None:
@@ -173,6 +186,26 @@ def test_genios_history_runs_openapi_requires_approved_sources() -> None:
     assert spec["components"]["schemas"]["HistoryPrepareRequest"]["required"] == [
         "question", "source_ids"
     ]
+    assert spec["components"]["schemas"]["HistoryCitation"]["required"] == [
+        "source_id", "evidence_quote", "claim_text"
+    ]
     assert spec["components"]["schemas"]["HistoryReviewResponse"]["properties"]["semantic_verified"] == {
         "type": "boolean"
     }
+
+
+def test_genios_answer_release_openapi_has_two_protected_operations() -> None:
+    client = TestClient(app)
+    response = client.get("/openapi-genios-answers.json")
+    assert response.status_code == 200
+    spec = response.json()
+    assert spec["openapi"] == "3.0.3"
+    assert set(spec["paths"]) == {
+        "/api/genios/answers/history", "/api/genios/answers/exhibit",
+    }
+    operations = [path["post"] for path in spec["paths"].values()]
+    assert all(item["security"] == [{"HistoryGuideApiKey": []}] for item in operations)
+    assert len({item["operationId"] for item in operations}) == 2
+    assert "claim_text" in spec["components"]["schemas"]["HistoryCitation"]["required"]
+    assert "claim_text" in spec["components"]["schemas"]["EvidenceCitation"]["required"]
+    assert "claim_support_reviewed" in spec["components"]["schemas"]["ReleasedAnswer"]["required"]

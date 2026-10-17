@@ -11,6 +11,7 @@ def build_route_plan(
     visitor_state: VisitorState,
     *,
     max_items: int = 5,
+    approved_only: bool = False,
 ) -> RoutePlan:
     remaining_budget = visitor_state.remaining_time
     planned_minutes = 0
@@ -24,7 +25,9 @@ def build_route_plan(
             items=items,
         )
 
-    recommendations = recommend_exhibits(db, visitor_state, limit=max_items * 2)
+    recommendations = recommend_exhibits(
+        db, visitor_state, limit=max_items * 2, approved_only=approved_only
+    )
     for recommendation in recommendations:
         exhibit = get_exhibit(db, recommendation.exhibit_id)
         if exhibit is None:

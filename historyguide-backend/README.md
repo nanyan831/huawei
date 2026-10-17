@@ -233,6 +233,8 @@ historyguide-backend/
       0003_evidence_governance.py
       0004_review_runs.py
       0005_history_review_runs.py
+      0006_visitor_access_grants.py
+      0007_source_approval_fingerprint.py
   scripts/
     deployment_self_check.py
     export_exhibits.py
@@ -287,6 +289,10 @@ see `docs/dependency_locking.md` for installation, updates, and verification lim
 
 The Windows Python 3.12 locked environment has been checked locally. Linux container
 builds still require a working Docker daemon and separate validation.
+The repository also contains `.github/workflows/ci.yml` for hash-locked installation,
+backend and isolated operator-browser tests, Docker build, and a container readiness
+smoke test. This workflow has not run remotely until these changes are pushed; a
+passing local suite does not prove its Linux image build.
 
 ```powershell
 uvicorn app.main:app --reload
@@ -351,6 +357,14 @@ python scripts\validate_staging_database.py --require-exhibits --require-sourced
 ```
 
 The staging database validator connects to the configured target database or a `--database-url` override and checks connectivity, core tables, the current Alembic head, exhibit count, empty `source_reference` values, Visitor State count, visit-event count, and audit-log count. It does not run migrations, import records, write audit logs, validate historical accuracy, run RAG, or generate explanation content.
+
+After migrating an isolated PostgreSQL staging database, verify that claim approval revocation is serialized after a release transaction. This is an intentional write test and refuses to run without the acknowledgement flag; it creates uniquely named synthetic records and removes them by default:
+
+```powershell
+python scripts\verify_postgres_claim_release_lock.py --acknowledge-staging-write-test
+```
+
+Do not run this probe against production. A pass verifies this PostgreSQL row-lock boundary only; it does not replace curator review or Coze end-to-end validation.
 
 Request tracing:
 
@@ -816,7 +830,19 @@ Agent architecture and the local snapshot-bound review workflow are documented i
 `docs/agent_architecture_2026.md`. These endpoints are not yet deployed or wired as
 the NK-GeniOS final answer gate.
 General historical Q&A has a separate local approved-source run API and plugin schema
-at `/openapi-genios-history-runs.json`; it is not a semantic fact verifier.
+at `/openapi-genios-history-runs.json`. Its review currently allows only literal
+`claim_text` excerpts from approved `evidence_quote` values, each followed by the
+matching source marker. This is not a semantic fact verifier or museum approval.
+Exhibit/route review also requires literal claim excerpts; multi-exhibit answers may
+include only the route-name prefix derived from the cited, backend-ordered exhibits.
+The optional `/openapi-genios-answers.json` plugin provides server-side single-call
+prepare/review/finalize orchestration for history and exhibit/route drafts. Its protected
+API returns only a reviewed answer or safe block, but it is not a visitor browser gateway
+and cannot force Coze to call it; a mandatory final-output workflow is still required.
+An opt-in, session-token visitor gateway is documented in `docs/visitor_gateway.md`.
+It keeps the business key off visitor JavaScript and scopes state, approved routes,
+exhibit reads and reviewed answers to a short-lived token. It is not yet a Coze
+model adapter or a production-ready public deployment.
 Operator-only draft evidence batch intake, listing, and detail inspection are described in
 `docs/evidence_intake.md`. The local staff UI is documented in `docs/operator_workspace.md`;
 it has not been deployed or accepted by museum staff. The cleaned public-source package must not be auto-approved.

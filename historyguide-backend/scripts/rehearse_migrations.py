@@ -27,6 +27,8 @@ EXPECTED_TABLES = frozenset(
         "exhibits",
         "visitor_states",
         "visitor_visit_events",
+        "visitor_access_grants",
+        "claim_support_reviews",
     }
 )
 

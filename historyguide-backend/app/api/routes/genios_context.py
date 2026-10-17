@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -163,8 +163,14 @@ def read_genios_flat_handoff(
 @router.post("/review", response_model=GeniosReviewResponse)
 def review_genios_draft(
     review: GeniosReviewRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> GeniosReviewResponse:
+    if request.app.state.settings.claim_support_required:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Legacy draft review cannot release answers in strict mode; use the one-call reviewed answer endpoint.",
+        )
     visitor_state = get_visitor_state(db, review.session_id)
     if visitor_state is None:
         raise HTTPException(

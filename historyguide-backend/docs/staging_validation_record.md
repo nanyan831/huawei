@@ -57,6 +57,7 @@ Commands:
 python scripts\rehearse_migrations.py
 alembic upgrade head
 python scripts\validate_staging_database.py
+python scripts\verify_postgres_claim_release_lock.py --acknowledge-staging-write-test
 ```
 
 Record:
@@ -66,6 +67,8 @@ Record:
 - Read-only staging database validation result:
 - Current Alembic revision:
 - Core tables present:
+- PostgreSQL claim-release/revocation concurrency probe result:
+- Probe records cleaned (or retained with investigation reference):
 - Rollback plan confirmed:
 - Notes:
 

@@ -27,16 +27,39 @@
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <section id="workspace" hidden>
       <div class="metrics" aria-label="资料概况"><article class="metric"><span>待审核来源</span><strong id="draft-count">—</strong><small>核对出处后逐条审批</small></article><article class="metric"><span>已批准来源</span><strong id="approved-count">—</strong><small>撤销会使相关审核失效</small></article><article class="metric"><span>展品记录</span><strong id="exhibit-count">—</strong><small>导入后仍需关联来源与审批</small></article></div>
-      <nav class="tabs" aria-label="工作台功能"><button type="button" class="tab active" data-tab="sources" aria-current="page">来源审核</button><button type="button" class="tab" data-tab="exhibits">展品治理</button><button type="button" class="tab" data-tab="audit">操作记录</button></nav>
+      <nav class="tabs" aria-label="工作台功能"><button type="button" class="tab active" data-tab="sources" aria-current="page">来源审核</button><button type="button" class="tab" data-tab="exhibits">展品治理</button><button type="button" class="tab" data-tab="claims">声明审核</button><button type="button" class="tab" data-tab="audit">操作记录</button></nav>
       <div class="workspace-grid">
         <section id="intake-panel" class="card" aria-labelledby="intake-title">
           <span class="step">01 / 导入准备</span><h2 id="intake-title">整理一批新资料</h2><p class="muted">先预览，再导入。每批最多 20 条，重复 ID 会使整批失败。</p>
           <label for="batch-kind">资料类型</label><select id="batch-kind"><option value="sources">来源原文</option><option value="exhibits">展品记录</option></select>
+          <form id="single-exhibit-form" class="single-upload" hidden>
+            <div class="section-heading"><div><span class="step">单件录入</span><h3>上传一件展品</h3></div><span class="badge draft">保存为待审核</span></div>
+            <div class="form-grid">
+              <div><label for="exhibit-id">展品 ID</label><input id="exhibit-id" required maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._:-]{0,63}" placeholder="如 nk-exhibit-001"></div>
+              <div><label for="exhibit-name">展品名称</label><input id="exhibit-name" required maxlength="200"></div>
+              <div><label for="exhibit-period">所属时期</label><input id="exhibit-period" required maxlength="120"></div>
+              <div><label for="exhibit-importance">重要程度</label><select id="exhibit-importance"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+            </div>
+            <label for="exhibit-description">展品描述</label><textarea id="exhibit-description" class="compact-textarea" required maxlength="100000" rows="5"></textarea>
+            <label for="exhibit-source-reference">原始出处或档案引用</label><input id="exhibit-source-reference" required maxlength="2000" placeholder="如馆藏档案号或稳定来源链接">
+            <label for="exhibit-source-ids">关联已有来源 ID</label><input id="exhibit-source-ids" maxlength="1300" placeholder="多个 ID 用逗号分隔，如 S01, S02">
+            <div class="form-grid">
+              <div><label for="exhibit-keywords">关键词</label><input id="exhibit-keywords" placeholder="用逗号分隔"></div>
+              <div><label for="exhibit-people">相关人物</label><input id="exhibit-people" placeholder="用逗号分隔"></div>
+              <div><label for="exhibit-themes">主题</label><input id="exhibit-themes" placeholder="用逗号分隔"></div>
+              <div><label for="exhibit-time-range">时间范围</label><input id="exhibit-time-range" maxlength="120"></div>
+            </div>
+            <label class="check"><input id="single-exhibit-confirm" type="checkbox"><span>已核对展品信息与出处；此次仅保存待审核记录，不自动发布。</span></label>
+            <button id="upload-single-exhibit" type="submit" class="primary wide" disabled>保存展品并关联来源</button>
+          </form>
+          <div id="batch-upload-panel">
+          <div class="section-heading batch-heading"><h3>批量 JSON 导入</h3><span class="muted small">适合多条资料</span></div>
           <label for="batch-file" class="file-label">选择 JSON 文件 <small>UTF-8 · 最大 8 MiB</small></label><input id="batch-file" type="file" accept=".json,application/json">
           <label for="batch-json">或粘贴 JSON 内容</label><textarea id="batch-json" rows="12" spellcheck="false" placeholder="选择文件或粘贴资料；支持 JSON 数组及带 sources / exhibits 字段的对象。"></textarea>
           <details class="format-guide"><summary>查看导入格式</summary><pre id="format-example"></pre><p class="muted small">示意格式用于说明字段。请替换为已核对的原文，清洗候选资料需人工整理。</p></details>
           <button id="preview-batch" type="button" class="secondary wide">校验并预览</button>
           <section id="preview-panel" class="preview" hidden aria-label="导入预览"><h3>预览通过</h3><div id="preview-items"></div><label class="check"><input id="intake-confirm" type="checkbox"><span>已逐条核对原始出处；此次仅导入待审批记录。</span></label><button id="import-batch" type="button" class="primary wide" disabled>确认导入</button></section>
+          </div>
         </section>
         <section class="card records" aria-labelledby="records-title">
           <div class="section-heading"><div><span class="step">02 / 核对与审批</span><h2 id="records-title">来源资料</h2></div><button id="refresh" type="button" class="secondary">刷新</button></div>
@@ -46,6 +69,21 @@
           <p id="records-note" class="muted small">导入草稿不会自动批准，也不会同步到 Coze 知识库。</p>
         </section>
       </div>
+      <section id="claims-panel" class="claims-layout" hidden aria-labelledby="claims-title">
+        <form id="claim-form" class="card">
+          <span class="step">03 / 声明支持</span><h2 id="claims-title">新建审核候选</h2>
+          <label for="claim-source-id">已批准来源 ID</label><input id="claim-source-id" required maxlength="64" autocomplete="off">
+          <label for="claim-quote">来源原文摘录</label><textarea id="claim-quote" required minlength="8" maxlength="800" rows="5"></textarea>
+          <label for="claim-text">待审核声明</label><textarea id="claim-text" required minlength="8" maxlength="800" rows="3"></textarea>
+          <button id="create-claim" type="submit" class="primary wide">创建候选</button>
+        </form>
+        <section class="card records" aria-label="声明审核记录">
+          <div class="section-heading"><h2>审核记录</h2><button id="refresh-claims" type="button" class="secondary">刷新</button></div>
+          <div class="filters"><label for="claim-status-filter">审核状态</label><select id="claim-status-filter"><option value="draft">待审核</option><option value="approved">已批准</option><option value="revoked">已撤销</option><option value="">全部</option></select></div>
+          <div class="table-scroll"><table><thead><tr><th>来源 / 声明</th><th>状态</th><th>审核人</th><th>操作</th></tr></thead><tbody id="claim-rows"></tbody></table></div>
+          <div class="pagination"><span id="claim-page-status">尚未载入</span><div><button id="claim-previous" type="button" class="quiet" disabled>上一页</button><button id="claim-next" type="button" class="quiet" disabled>下一页</button></div></div>
+        </section>
+      </section>
     </section>
     <footer><span>NK HistoryGuide · 馆员工作台</span><span>原文核对 → 来源审批 → 展品关联 → 展品审批</span></footer>
   </main>
@@ -56,6 +94,16 @@
     <form id="link-form" hidden><label for="link-source-id">关联已有来源 ID</label><div class="inline-form"><input id="link-source-id" required maxlength="64" placeholder="如 S01"><button type="submit" class="secondary">关联来源</button></div><p class="muted small">请先核对来源正文与展品的对应关系。展品审批要求所有关联来源均已批准。</p></form>
     <label class="check"><input id="review-confirm" type="checkbox"><span>已核对原始出处、摘录与展品对应关系，由本人记录此次审批或撤销。</span></label>
     <div class="dialog-actions"><span id="reviewer-label" class="muted small"></span><div><button id="revoke-record" type="button" class="danger" disabled>撤销批准</button><button id="approve-record" type="button" class="primary" disabled>批准资料</button></div></div>
+  </dialog>
+  <dialog id="claim-dialog" aria-labelledby="claim-detail-title">
+    <div class="dialog-heading"><span class="step">逐句核对</span><button id="close-claim" type="button" class="quiet" aria-label="关闭声明审核">关闭 ×</button></div>
+    <h2 id="claim-detail-title"></h2><div id="claim-detail-meta" class="detail-meta"></div>
+    <h3>完整来源原文</h3><pre id="claim-source-content" class="source-text"></pre>
+    <h3>提交的证据摘录</h3><pre id="claim-detail-quote" class="source-text claim-excerpt"></pre>
+    <h3>待确认的声明</h3><pre id="claim-detail-text" class="source-text claim-excerpt"></pre>
+    <p id="claim-detail-notice" class="notice" role="status" aria-live="polite" hidden></p>
+    <label class="check"><input id="claim-confirm" type="checkbox"><span>已对照完整原文核对否定、日期和语境；确认此摘录支持该声明。</span></label>
+    <div class="dialog-actions"><span id="claim-reviewer-label" class="muted small"></span><div><button id="revoke-claim" type="button" class="danger" disabled>撤销支持</button><button id="approve-claim" type="button" class="primary" disabled>批准支持</button></div></div>
   </dialog>
 </body>
 </html>

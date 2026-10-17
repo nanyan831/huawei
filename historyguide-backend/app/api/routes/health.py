@@ -105,6 +105,7 @@ def security_status(request: Request) -> SecurityStatusResponse:
         business_api_key_configured=bool(runtime_settings.api_key or runtime_settings.api_key_next),
         business_api_key_rotation_staged=bool(runtime_settings.api_key_next),
         operator_api_key_configured=bool(runtime_settings.operator_api_key),
+        visitor_gateway_enabled=runtime_settings.visitor_gateway_enabled,
         business_apis_require_api_key=bool(runtime_settings.api_key or runtime_settings.api_key_next),
         operator_apis_require_operator_key=bool(runtime_settings.operator_api_key),
         business_api_key_header=API_KEY_HEADER,
@@ -141,7 +142,23 @@ def access_policy(request: Request) -> AccessPolicyResponse:
                 path_prefixes=["/api"],
                 notes=(
                     "Ordinary backend APIs use the business API key when configured. "
-                    "Operator paths are excluded and require the operator key when configured."
+                    "Operator paths use the operator key; enabled visitor paths use scoped bearer tokens."
+                ),
+            ),
+            AccessPolicyEntry(
+                name="visitor_gateway",
+                access_level="visitor_token",
+                required_header="Authorization" if runtime_settings.visitor_gateway_enabled else None,
+                paths=(
+                    ["/api/visitor/me", "/api/visitor/revoke", "/api/visitor/route", "/api/visitor/visit-events",
+                     "/api/visitor/answers/history", "/api/visitor/answers/exhibit"]
+                    if runtime_settings.visitor_gateway_enabled else []
+                ),
+                path_prefixes=["/api/visitor/exhibits/"] if runtime_settings.visitor_gateway_enabled else [],
+                notes=(
+                    "Disabled by default. A trusted business-key caller provisions a short-lived "
+                    "session-bound token at /api/visitor/grants; trusted callers can revoke a session at "
+                    "/api/visitor/grants/revoke; visitor paths never accept the business key."
                 ),
             ),
             AccessPolicyEntry(

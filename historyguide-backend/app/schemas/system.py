@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 OperationalAlertSeverity = Literal["warn", "fail"]
 OperationalAlertStatus = Literal["ok", "attention_required"]
-AccessPolicyLevel = Literal["public", "business_api_key", "operator_api_key", "local_operator_workflow"]
+AccessPolicyLevel = Literal["public", "business_api_key", "operator_api_key", "visitor_token", "local_operator_workflow"]
 
 
 class OperationalAlert(BaseModel):
@@ -30,6 +30,7 @@ class SecurityStatusResponse(BaseModel):
     business_api_key_configured: bool
     business_api_key_rotation_staged: bool
     operator_api_key_configured: bool
+    visitor_gateway_enabled: bool
     business_apis_require_api_key: bool
     operator_apis_require_operator_key: bool
     business_api_key_header: str

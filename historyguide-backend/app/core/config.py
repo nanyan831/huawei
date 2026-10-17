@@ -16,6 +16,10 @@ class Settings:
     api_key: str | None = None
     api_key_next: str | None = None
     operator_api_key: str | None = None
+    visitor_gateway_enabled: bool = False
+    visitor_signing_key: str | None = None
+    visitor_token_ttl_minutes: int = 120
+    claim_support_required: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -31,12 +35,23 @@ class Settings:
             api_key=read_optional_secret("HISTORYGUIDE_API_KEY"),
             api_key_next=read_optional_secret("HISTORYGUIDE_API_KEY_NEXT"),
             operator_api_key=read_optional_secret("HISTORYGUIDE_OPERATOR_API_KEY"),
+            visitor_gateway_enabled=read_bool_env("HISTORYGUIDE_VISITOR_GATEWAY_ENABLED"),
+            visitor_signing_key=read_optional_secret("HISTORYGUIDE_VISITOR_SIGNING_KEY"),
+            visitor_token_ttl_minutes=int(os.getenv("HISTORYGUIDE_VISITOR_TOKEN_TTL_MINUTES", "120")),
+            claim_support_required=read_bool_env("HISTORYGUIDE_CLAIM_SUPPORT_REQUIRED"),
         )
 
 
 def parse_csv_env(name: str) -> tuple[str, ...]:
     raw_value = os.getenv(name, "")
     return tuple(item.strip() for item in raw_value.split(",") if item.strip())
+
+
+def read_bool_env(name: str) -> bool:
+    value = os.getenv(name, "false").strip().lower()
+    if value not in {"true", "false", "1", "0"}:
+        raise ValueError(f"{name} must be true or false.")
+    return value in {"true", "1"}
 
 
 def read_optional_secret(name: str) -> str | None:

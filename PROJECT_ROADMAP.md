@@ -37,13 +37,21 @@
 - 完成工作人员导入/预览/批准/撤销页面，复用现有 operator API，新增必要的鉴权、上传校验与审批审计；导入失败整批回滚。
 - 证据：馆员签字的来源清单、映射表、真实展品导入/撤销回归测试和 staging 数据门禁通过。当前这项未完成。
 
-本地工程进度：工作人员页面已实现并复用 operator API，支持 JSON 文件/粘贴、预览确认、来源正文查看、展品绑定、批准/撤销及审计查看；细节见 `historyguide-backend/docs/operator_workspace.md`。导入固定为待审批状态，预览不写库；服务端鉴权与 8 MiB 请求体限制不能替代馆方核实原文。阶段 1 仍缺真实资料、签字清单、Coze ID 映射、目标环境数据门禁及馆员试用签收。
+本地工程进度：工作人员页面已实现并复用 operator API，支持普通表单上传单件展品、可选原子关联已有来源，也支持 JSON 文件/粘贴、预览确认、来源正文查看、展品绑定、批准/撤销及审计查看；细节见 `historyguide-backend/docs/operator_workspace.md`。单件上传的展品、来源链接和审计记录同事务提交，来源不存在或审计失败时不留下半条记录。导入固定为待审批状态，预览不写库；服务端鉴权与 8 MiB 请求体限制不能替代馆方核实原文。阶段 1 仍缺真实资料、签字清单、Coze ID 映射、目标环境数据门禁及馆员试用签收。
 
 ### 2. 可证明的答案出口
 
-- 在 staging 部署与 `0005` 一致的后端。Coze 导入两个新 run 插件；展品/路线用 `/api/genios/runs`，一般校史用 `/api/genios/history-runs`。
+- 在 staging 部署与当前 Alembic head `0008_claim_support_reviews` 一致的后端。Coze 导入单次放行工具；严格模式关闭旧的 `/api/genios/runs` 和 `/api/genios/history-runs` 多步 HTTP 路径。
 - Coze 工作流或应用网关必须只显示 finalize 返回的 `answer`，不能由提示词自行决定是否跳过 review。超时、401、409、工具不可用、撤销来源和过期快照均不得输出未审核草稿。
+- 本地新增 `/api/genios/answers/history` 与 `/api/genios/answers/exhibit` 单次放行工具（OpenAPI: `/openapi-genios-answers.json`），服务端串行 prepare/review/finalize 并只返回放行答案或安全阻断。它尚未部署或导入 Coze，也不能强制平台一定调用；访客最终展示通道仍须工作流/可信网关锁定。
 - 在 review 与馆员评测之间补按句 claim -> source quote 的语义支持检查；该检查需要原文可追溯、能拒绝「引用存在但不支持结论」，不得把当前 `semantic_verified=false` 当通过。
+- 本地已加入来源版本绑定的人工 claim-to-quote 审核草稿/批准/撤销记录。staging/production 配置校验要求 `HISTORYGUIDE_CLAIM_SUPPORT_REQUIRED=true`，单次放行接口在严格模式逐条校验当前审批，缺审或撤销返回 409；`claim_support_reviewed=true` 仅表示有对应人工审批记录，`semantic_verified` 仍为 false。操作见 `historyguide-backend/docs/claim_support_review.md`。真实馆员身份认证、原始出处核实、跨句语义能力和并发撤销原子性尚未验收。
+- 馆员工作台现有“声明审核”页可创建候选、并列阅读来源全文/摘录/声明、明确确认、批准或撤销；本地隔离浏览器流程已验证。它尚未连接真实馆方账号体系或 staging 数据，也不意味着候选由馆方实际审定。
+- 严格放行现将来源和审核行的 `FOR UPDATE` 锁保持到 finalize 审计/答案提交，审计记录所用审核 ID。2026-10-18 已在服务器的一次性 PostgreSQL 16 容器上完成真实双连接验证：放行事务持锁期间撤销被阻塞，提交后撤销对新事务可见，唯一探针记录已清理；完整脱敏记录见 `historyguide-backend/docs/staging_validation_2026-10-18.md`。该容器没有公网端口且测试后已删除；这证明当前代码的并发锁路径，不代表生产数据库迁移或 Coze 接线完成。
+- 发现旧 `/api/genios/review` 可把结构检查通过的草稿放进 `safe_answer`；严格模式现返回 409，旧多步路由也不可用。结构化 Handoff 仍可供上下文检索，但它不授权最终展示；Coze 工作流/可信展示网关必须单独强制只采用一次放行工具的 `answer`。staging 接线文档已改为这一路径，真实 Coze 绕过测试尚未完成。
+- 本地一般校史 review 已先收紧为逐字摘录：`claim_text` 必须位于已批准的 `evidence_quote`，草稿不得夹带额外句子；这是防止明显的无依据改写，不是跨句语义蕴含、来源真伪或馆方事实审核。新插件参数尚未在 Coze 更新，正式语义门禁仍未完成。
+- 本地新增受业务密钥保护的 `/api/genios/sources/search` 与 `/openapi-genios-sources.json`，只按短关键词检索后端已审批、非 fixture、哈希和审核记录完整的来源摘录；未命中返回空列表。它是有边界的字面检索，不能代替 Coze ID 映射、馆方原始资料核验或语义检索，尚未在 staging/Coze 部署。
+- 本地展品/路线 run review 也已要求逐字 `claim_text`，多展品答案只能使用后端可核对的展品名与引用顺序；当前已导入的 Coze 插件仍不含这个新字段。自由改写、跨来源归纳及真正语义蕴含继续保持未验收，不得声称已解决。
 - 证据：Coze 配置截图/导出、脱敏端到端轨迹、强制出口绕过测试及来源冲突/缺失用例。仅本地接口绿灯不算完成。
 
 ### 3. 对照评测，而非先堆 Agent
@@ -53,11 +61,17 @@
 - 上线阈值由馆方与项目负责人在测试前签署；建议高风险用例零未拦截错误、所有正式事实句均有可核对来源，并报告重复运行方差。小样本零错误不等于生产零风险。
 - 证据：真实、脱敏的轨迹和馆员评分，不接受示例 JSON 或自动脚本自评作为事实正确性的证明。
 
+本地已补配对评测脚本 `scripts/compare_agent_modes.py` 和每题两种问法，按三次重复要求单/双 Agent 在同一模型、语料版本、后端版本和输出预算下成对记录。它只核对标签覆盖并报告错误次数、延迟与 token，不会代替真实 Coze 轨迹、馆员评分或事先签署的上线阈值；操作说明见 `historyguide-backend/docs/paired_agent_evaluation.md`。
+
 ### 4. 生产运行与体验
 
 - 先留可恢复备份并演练回滚；仅在隔离副本和 staging 验证后迁移线上旧库。正式部署需要 Python >=3.11、迁移模式、独立密钥、最小网络暴露、HTTPS、监控告警、日志脱敏、限流与故障降级。数据库方案按并发/备份要求选型，若转 PostgreSQL，必须先做数据迁移与恢复验收。
 - Web/H5 覆盖访客会话、进度、讲解、路线和来源查看；馆员入口与访客入口分权。Coze 插件授权、调用链和前端展示在真实环境逐项验收。
+- 访客浏览器不得持有共享业务或操作员密钥；需由服务端网关持钥并校验访客会话归属、限流和唯一 `finalize` 答案出口。旧 Web/H5 文档的直连示例仅可用隔离测试密钥在 staging 验证，不能作为生产方案。
+- 本地已加入默认关闭的访客令牌网关：可信服务以业务 Key 对已有会话签发短期令牌，访客凭令牌访问自己的状态、已审批路线/展品和后端审核答案。令牌摘要现持久化，可由可信服务按会话或访客自身撤销；仍没有自助会话注册、Coze 模型适配器、代理层限流或生产部署证据；签发令牌不得交给模型或放进公开二维码，详见 `historyguide-backend/docs/visitor_gateway.md`。
 - 证据：`docs/production_readiness_decision_checklist.md` 与 `docs/staging_validation_record.md` 的真实记录、备份恢复演练、访问控制测试、馆方试运行签收。
+
+本地已补 `scripts/smoke_isolated_runtime.py`：临时迁移库、随机测试密钥和仅回环地址的真实 Uvicorn HTTP 冒烟检查，包括访客授权与撤销。2026-10-18 又在服务器构建了当前锁定镜像，并保留一个 `network=none`、无公开端口的隔离 SQLite staging；健康、就绪、管理员入口、工具 OpenAPI、单展品上传和 PostgreSQL 并发探针均通过。它仍不可被 Coze 或访客访问，也不是生产部署；公开 staging、备份恢复和真实平台接线仍待完成。
 
 ## 何时算项目可以收尾
 

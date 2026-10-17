@@ -126,25 +126,53 @@ async function run() {
     await page.locator("#close-detail").click();
     checks.push("source approval and inert untrusted text/URI");
 
+    await page.locator('[data-tab="claims"]').click();
+    await page.locator("#claim-source-id").fill("browser-S01");
+    await page.locator("#claim-quote").fill(sources[0].content_text);
+    await page.locator("#claim-text").fill("Non-historical browser test excerpt.");
+    await page.locator("#create-claim").click();
+    await page.waitForFunction(() => document.getElementById("claim-rows").textContent.includes("Non-historical browser test excerpt."));
+    await page.locator("#claim-rows button").first().click();
+    await page.locator("#claim-dialog").waitFor({ state: "visible" });
+    assert.equal(await page.locator("#approve-claim").isEnabled(), false);
+    assert.equal(await page.locator("#claim-source-content script").count(), 0);
+    assert.equal(await page.evaluate(() => window.injected), undefined);
+    await page.locator("#claim-confirm").check();
+    await page.locator("#approve-claim").click();
+    await page.waitForFunction(() => document.getElementById("claim-detail-meta").textContent.includes("已批准"));
+    await page.locator("#claim-confirm").check();
+    await page.locator("#revoke-claim").click();
+    await page.waitForFunction(() => document.getElementById("claim-detail-meta").textContent.includes("已撤销"));
+    await page.locator("#close-claim").click();
+    await page.screenshot({ path: path.join(artifactDir, "claim-workspace-desktop.png"), fullPage: true });
+    checks.push("claim candidate requires full-source confirmation and can be revoked");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await page.screenshot({ path: path.join(artifactDir, "claim-workspace-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    checks.push("claim review remains usable on mobile width");
+
+    await page.locator('[data-tab="sources"]').click();
     await page.locator("#batch-kind").selectOption("exhibits");
     const exhibits = [{ id: "browser-exhibit", name: "Non-historical browser exhibit", description: "Local test record, not museum evidence.",
       period: "test", importance: 3, source_reference: "local-browser-test:record" }];
-    await page.locator("#batch-json").fill(JSON.stringify(exhibits));
-    await page.locator("#preview-batch").click();
-    await page.locator("#preview-panel").waitFor({ state: "visible" });
-    await page.locator("#intake-confirm").check();
-    await page.locator("#import-batch").click();
+    await page.locator("#exhibit-id").fill("browser-exhibit");
+    await page.locator("#exhibit-name").fill("Non-historical browser exhibit");
+    await page.locator("#exhibit-description").fill("Local test record, not museum evidence.");
+    await page.locator("#exhibit-period").fill("test");
+    await page.locator("#exhibit-source-reference").fill("local-browser-test:record");
+    await page.locator("#exhibit-source-ids").fill("browser-S01");
+    await page.locator("#single-exhibit-confirm").check();
+    await page.locator("#upload-single-exhibit").click();
     await page.waitForFunction(() => document.getElementById("exhibit-count").textContent === "1");
-    await page.locator('[data-tab="exhibits"]').click();
     await page.locator("#records-body button").first().click();
-    await page.locator("#link-source-id").fill("browser-S01");
-    await page.locator("#link-form button").click();
     await page.waitForFunction(() => document.getElementById("detail-meta").textContent.includes("关联来源：browser-S01"));
     await page.locator("#review-confirm").check();
     await page.locator("#approve-record").click();
     await page.waitForFunction(() => document.getElementById("detail-meta").textContent.includes("审批与快照一致"));
     await page.locator("#close-detail").click();
-    checks.push("exhibit intake, source linking, and approval");
+    checks.push("single-exhibit form upload, atomic source linking, and approval");
 
     await page.locator('[data-tab="sources"]').click();
     await page.locator("#status-filter").selectOption("approved");

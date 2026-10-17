@@ -20,10 +20,18 @@ from app.schemas.evidence import (
     ReviewerAction,
     EvidenceExhibitBatchCreate,
     EvidenceExhibitBatchRead,
+    EvidenceExhibitUpload,
     EvidenceExhibitRead,
     EvidenceExhibitPage,
 )
 from app.schemas.exhibit import ExhibitRead
+from app.models.claim_support_review import ClaimSupportReview
+from app.schemas.claim_support_review import (
+    ClaimSupportApproval, ClaimSupportCandidate, ClaimSupportPage, ClaimSupportRead, ClaimSupportRevocation,
+)
+from app.services.claim_support_review_service import (
+    approve_candidate, create_candidate, list_candidates, revoke_candidate,
+)
 from app.schemas.review_run import ReviewRunStats
 from app.services.evidence_service import (
     approve_exhibit,
@@ -37,7 +45,9 @@ from app.services.evidence_service import (
     validate_sources_batch,
     exhibit_approval_issue,
 )
-from app.services.exhibit_import_service import import_exhibit_batch, validate_exhibit_batch
+from app.services.exhibit_import_service import (
+    import_exhibit_batch, import_exhibit_with_sources, validate_exhibit_batch,
+)
 from app.services.review_run_stats_service import get_review_run_stats
 
 
@@ -131,6 +141,46 @@ def revoke_evidence_source(
     return _call(revoke_source, db, source_id, reviewer=payload.reviewer)
 
 
+@router.post("/claim-support", response_model=ClaimSupportRead, status_code=201)
+def add_claim_support_candidate(
+    payload: ClaimSupportCandidate, db: Session = Depends(get_db)
+) -> ClaimSupportRead:
+    return _call(create_candidate, db, **payload.model_dump())
+
+
+@router.get("/claim-support", response_model=ClaimSupportPage)
+def read_claim_support_candidates(
+    status_filter: Literal["draft", "approved", "revoked"] | None = Query(default=None, alias="status"),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> ClaimSupportPage:
+    items, total = list_candidates(db, status=status_filter, offset=offset, limit=limit)
+    return ClaimSupportPage(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.get("/claim-support/{review_id}", response_model=ClaimSupportRead)
+def read_claim_support_candidate(review_id: str, db: Session = Depends(get_db)) -> ClaimSupportRead:
+    review = db.get(ClaimSupportReview, review_id)
+    if review is None:
+        raise HTTPException(status_code=404, detail="Claim support candidate was not found.")
+    return review
+
+
+@router.post("/claim-support/{review_id}/approve", response_model=ClaimSupportRead)
+def approve_claim_support_candidate(
+    review_id: str, payload: ClaimSupportApproval, db: Session = Depends(get_db)
+) -> ClaimSupportRead:
+    return _call(approve_candidate, db, review_id, reviewer=payload.reviewer)
+
+
+@router.post("/claim-support/{review_id}/revoke", response_model=ClaimSupportRead)
+def revoke_claim_support_candidate(
+    review_id: str, payload: ClaimSupportRevocation, db: Session = Depends(get_db)
+) -> ClaimSupportRead:
+    return _call(revoke_candidate, db, review_id, reviewer=payload.reviewer)
+
+
 @router.post("/exhibits/batch/preview", response_model=EvidenceExhibitBatchRead)
 def preview_evidence_exhibits(
     payload: EvidenceExhibitBatchCreate, db: Session = Depends(get_db)
@@ -145,6 +195,19 @@ def add_evidence_exhibits(
 ) -> EvidenceExhibitBatchRead:
     records = _call(import_exhibit_batch, db, payload.exhibits)
     return EvidenceExhibitBatchRead(count=len(records), items=records)
+
+
+@router.post("/exhibits", response_model=EvidenceExhibitRead, status_code=201)
+def upload_evidence_exhibit(
+    payload: EvidenceExhibitUpload, db: Session = Depends(get_db)
+) -> EvidenceExhibitRead:
+    record = _call(
+        import_exhibit_with_sources,
+        db,
+        payload.exhibit,
+        source_ids=payload.source_ids,
+    )
+    return _exhibit_detail(db, record)
 
 
 def _exhibit_detail(db: Session, exhibit: Exhibit) -> EvidenceExhibitRead:

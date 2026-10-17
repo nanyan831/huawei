@@ -43,7 +43,9 @@ uv pip compile requirements-dev.txt --constraint requirements.lock --constraint 
 开发锁交集版本一致。检查生成差异和条件依赖后再交付，勿保留生成时的本机路径注释。
 公开镜像可通过编译命令的 `--index-url` 指定；本轮使用清华镜像。
 
-通用锁中的条件项不保证已实测所有平台。当前运行锁有 24 个版本项，开发锁有 33 个；
+通用锁中的条件项不保证已实测所有平台。运行依赖包含 `psycopg[binary]`，供
+staging/production 使用 PostgreSQL；本地 SQLite 回归不会加载该驱动，也不能替代
+PostgreSQL 并发验收。当前运行锁与开发锁的版本项数量应以重建后的锁文件为准；
 Linux 的 `uvloop` 与 Windows 的 `colorama` 按环境标记选择。2026-10-14 在 Windows
 Python 3.12.13 的独立虚拟环境 `D:\华为杯\.runtime\lockcheck` 实际以
 `uv pip install --require-hashes --index-url https://pypi.tuna.tsinghua.edu.cn/simple -r requirements-dev.lock`

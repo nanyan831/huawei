@@ -71,7 +71,7 @@ Record:
 - `grounding_sources_complete=True`
 - `missing_exhibit_ids=[]`
 - `unsourced_exhibit_ids=[]`
-- generated explanation display allowed by backend source-safety gate: yes
+- generated explanation display allowed by backend source-safety gate: no; preflight alone is insufficient without successful review/finalize
 - GeniOS consumed backend handoff package: example placeholder, not verified
 
 ## Evidence Package Notes

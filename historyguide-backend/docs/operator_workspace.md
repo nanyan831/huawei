@@ -1,8 +1,10 @@
 # 馆员工作台
 
-`GET /operator` 提供与后端同源的中文工作台。页面支持来源原文和展品的 JSON
-预览/导入、资料详情、来源审批/撤销、展品来源关联、展品审批/撤销及审计记录。
+`GET /operator` 提供与后端同源的中文工作台。页面支持单件展品表单上传、来源原文和
+展品的 JSON 预览/导入、资料详情、来源审批/撤销、展品来源关联、展品审批/撤销及审计记录。
 这是本地实现；真实馆员验收、馆方签字资料和 staging 部署仍需单独记录。
+
+“声明审核”页新增逐句支持审核：馆员可为已批准来源提交准确的原文摘录和待审核声明，创建时只生成草稿。打开详情会并列显示来源全文、摘录和声明；确认语义关系后才能记录批准，也可撤销。列表可按状态筛选并查看审核记录。来源被撤销或版本变动时，旧审核不再允许新答案放行。完整后端边界见 `docs/claim_support_review.md`；审核人姓名仍不是身份认证。
 
 ## Windows 本地启动
 
@@ -57,8 +59,11 @@
 
 ## 展品流程
 
-选择“展品记录”，上传现有展品 seed JSON 数组，或用 `{"exhibits": [...]}` 包装。
-每批同样最多 20 条。字段见 `docs/exhibit_seed_format.md`；工作台额外检查稳定 ID、
+选择“展品治理”后，工作人员可直接填写“上传一件展品”表单，并可填写最多 20 个已有
+来源 ID。展品、来源关联和一条审计记录在同一事务中提交；任一来源不存在或审计失败时
+整笔回滚。记录固定为待审核，不会因为上传而自动批准。批量工作可继续上传现有展品
+seed JSON 数组，或用 `{"exhibits": [...]}` 包装，每批最多 20 条。字段见
+`docs/exhibit_seed_format.md`；工作台额外检查稳定 ID、
 非空描述/时期/出处及模型长度上限。展品数据与导入审计在**同一事务**提交，CLI 也复用
 该事务逻辑。导入不生成审批、不自动关联来源。
 
@@ -81,8 +86,13 @@ JSON 中的 `source_reference` 不会自动创建来源记录或展品关联。
 | `POST /api/evidence/sources/batch` | 原子导入来源草稿 |
 | `POST /api/evidence/exhibits/batch/preview` | 展品只读预览 |
 | `POST /api/evidence/exhibits/batch` | 原子导入待审批展品 |
+| `POST /api/evidence/exhibits` | 表单上传单件待审批展品，并原子关联已有来源 |
 | `GET /api/evidence/exhibits` | 分页查询展品、审批状态、来源 ID 与当前门禁问题 |
 | `GET /api/evidence/exhibits/{exhibit_id}` | 展品治理详情 |
+| `GET /api/evidence/claim-support` | 分页查看逐句支持审核记录 |
+| `POST /api/evidence/claim-support` | 创建待审核声明候选 |
+| `POST /api/evidence/claim-support/{id}/approve` | 明确确认并批准支持关系 |
+| `POST /api/evidence/claim-support/{id}/revoke` | 撤销已批准支持关系 |
 
 批准、撤销和关联来源复用既有 `/api/evidence` API，操作记录复用
 `GET /api/audit-logs`。预览不占用 ID，提交时再次验证；其他操作员抢先导入时返回 409。

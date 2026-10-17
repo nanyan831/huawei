@@ -76,7 +76,7 @@ GET /api/system/security-status
 
 Confirm:
 
-- Web/H5 and GeniOS send `X-HistoryGuide-Api-Key` when business API protection is enabled
+- the trusted visitor gateway and GeniOS integration send `X-HistoryGuide-Api-Key` when business API protection is enabled; visitor browser code never holds it
 - trusted operator tooling sends `X-HistoryGuide-Operator-Key`
 - `HISTORYGUIDE_API_KEY` is configured for shared or public business APIs
 - `HISTORYGUIDE_OPERATOR_API_KEY` is configured for shared or production-like operator endpoints
@@ -157,7 +157,7 @@ GET /api/genios/handoff/{session_id}
 Confirm:
 
 - `HISTORYGUIDE_CORS_ORIGINS` includes the exact Web/H5 origin
-- Web/H5 sends `X-HistoryGuide-Api-Key` when needed
+- the trusted visitor gateway sends `X-HistoryGuide-Api-Key` when needed; the browser never holds the shared key
 - Web/H5 preserves `X-HistoryGuide-Request-Id`
 - one physical visit keeps one stable `session_id`
 - exhibit ids scanned by Web/H5 exist in `GET /api/exhibits/{exhibit_id}`

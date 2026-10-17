@@ -176,8 +176,9 @@ Record:
 - handoff request id
 - whether GeniOS consumed the backend handoff package
 - whether generated explanation display was allowed
+- review-run id, review decision, finalize status, and final-answer request id (without copying drafts or source text)
 
-Generated explanation display is allowed only when `grounding_sources_complete=true` and `source_safety.ready_for_generation=true`.
+`grounding_sources_complete=true` and `source_safety.ready_for_generation=true` are necessary preflight checks, not display authorization. Display only the matching review-run `finalize.answer` after successful finalization. Fixture, missing approval, skipped review, or tool failure must block display.
 
 The package does not define GeniOS prompts, does not run RAG, and does not judge generated historical prose.
 

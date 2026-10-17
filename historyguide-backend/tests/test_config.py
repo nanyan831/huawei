@@ -11,10 +11,14 @@ def test_settings_from_env_uses_defaults(monkeypatch) -> None:
     monkeypatch.delenv("HISTORYGUIDE_API_KEY", raising=False)
     monkeypatch.delenv("HISTORYGUIDE_API_KEY_NEXT", raising=False)
     monkeypatch.delenv("HISTORYGUIDE_OPERATOR_API_KEY", raising=False)
+    monkeypatch.delenv("HISTORYGUIDE_VISITOR_GATEWAY_ENABLED", raising=False)
+    monkeypatch.delenv("HISTORYGUIDE_VISITOR_SIGNING_KEY", raising=False)
+    monkeypatch.delenv("HISTORYGUIDE_VISITOR_TOKEN_TTL_MINUTES", raising=False)
     for name in (
         "HISTORYGUIDE_API_KEY_FILE",
         "HISTORYGUIDE_API_KEY_NEXT_FILE",
         "HISTORYGUIDE_OPERATOR_API_KEY_FILE",
+        "HISTORYGUIDE_VISITOR_SIGNING_KEY_FILE",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -28,6 +32,9 @@ def test_settings_from_env_uses_defaults(monkeypatch) -> None:
     assert settings.api_key is None
     assert settings.api_key_next is None
     assert settings.operator_api_key is None
+    assert settings.visitor_gateway_enabled is False
+    assert settings.visitor_signing_key is None
+    assert settings.visitor_token_ttl_minutes == 120
 
 
 def test_settings_from_env_reads_overrides(monkeypatch) -> None:
@@ -39,6 +46,9 @@ def test_settings_from_env_reads_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HISTORYGUIDE_API_KEY", "secret-key")
     monkeypatch.setenv("HISTORYGUIDE_API_KEY_NEXT", "next-secret-key")
     monkeypatch.setenv("HISTORYGUIDE_OPERATOR_API_KEY", "operator-secret")
+    monkeypatch.setenv("HISTORYGUIDE_VISITOR_GATEWAY_ENABLED", "true")
+    monkeypatch.setenv("HISTORYGUIDE_VISITOR_SIGNING_KEY", "visitor-secret")
+    monkeypatch.setenv("HISTORYGUIDE_VISITOR_TOKEN_TTL_MINUTES", "30")
     monkeypatch.setenv(
         "HISTORYGUIDE_CORS_ORIGINS",
         "http://localhost:5173, https://historyguide.example",
@@ -55,6 +65,15 @@ def test_settings_from_env_reads_overrides(monkeypatch) -> None:
     assert settings.api_key == "secret-key"
     assert settings.api_key_next == "next-secret-key"
     assert settings.operator_api_key == "operator-secret"
+    assert settings.visitor_gateway_enabled is True
+    assert settings.visitor_signing_key == "visitor-secret"
+    assert settings.visitor_token_ttl_minutes == 30
+
+
+def test_settings_rejects_invalid_gateway_flag(monkeypatch) -> None:
+    monkeypatch.setenv("HISTORYGUIDE_VISITOR_GATEWAY_ENABLED", "maybe")
+    with pytest.raises(ValueError, match="must be true or false"):
+        Settings.from_env()
 
 
 def test_settings_from_env_reads_secret_files(monkeypatch, tmp_path) -> None:

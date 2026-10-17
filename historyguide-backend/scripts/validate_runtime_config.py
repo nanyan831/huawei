@@ -35,6 +35,8 @@ def validate_runtime_config(settings: Settings, *, profile: Profile) -> list[Con
         _check_operator_key(settings, profile),
         _check_operator_key_is_separate(settings),
         _check_business_key_rotation(settings),
+        _check_visitor_gateway(settings),
+        _check_claim_support(settings, profile),
         _check_cors(settings, profile),
         _check_database_url(settings, profile),
         _check_schema_mode(settings, profile),
@@ -42,6 +44,14 @@ def validate_runtime_config(settings: Settings, *, profile: Profile) -> list[Con
         _check_log_format(settings, profile),
     ]
     return checks
+
+
+def _check_claim_support(settings: Settings, profile: Profile) -> ConfigCheck:
+    if settings.claim_support_required:
+        return ConfigCheck("claim_support", "pass", "claim support review required before answer release")
+    if profile in {"staging", "production"}:
+        return ConfigCheck("claim_support", "fail", "shared deployments require claim support review")
+    return ConfigCheck("claim_support", "warn", "disabled for local legacy tests only")
 
 
 def _check_business_key(settings: Settings, profile: Profile) -> ConfigCheck:
@@ -77,6 +87,23 @@ def _check_business_key_rotation(settings: Settings) -> ConfigCheck:
     return ConfigCheck(
         "business_key_rotation", "warn",
         "secondary business key is active; complete plugin cutover and remove the exposed old key promptly",
+    )
+
+
+def _check_visitor_gateway(settings: Settings) -> ConfigCheck:
+    if not settings.visitor_gateway_enabled:
+        return ConfigCheck("visitor_gateway", "pass", "disabled by default")
+    if not settings.api_key or not settings.visitor_signing_key:
+        return ConfigCheck("visitor_gateway", "fail", "requires business and visitor signing keys")
+    if settings.visitor_signing_key in (settings.api_key, settings.api_key_next, settings.operator_api_key):
+        return ConfigCheck("visitor_gateway", "fail", "visitor signing key must be independent")
+    if len(settings.visitor_signing_key.encode("utf-8")) < 32:
+        return ConfigCheck("visitor_gateway", "fail", "visitor signing key must contain at least 32 bytes")
+    if not 5 <= settings.visitor_token_ttl_minutes <= 480:
+        return ConfigCheck("visitor_gateway", "fail", "token lifetime must be 5-480 minutes")
+    return ConfigCheck(
+        "visitor_gateway", "warn",
+        "session grants are protected; verify trusted issuer, HTTPS, proxy rate limits and token delivery",
     )
 
 

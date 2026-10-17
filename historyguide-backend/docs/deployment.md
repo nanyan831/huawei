@@ -44,6 +44,8 @@ python scripts\validate_runtime_config.py --profile staging
 python scripts\validate_runtime_config.py --profile production
 ```
 
+For a local integration check of the migrated application, run `python scripts/smoke_isolated_runtime.py`. It builds a fresh temporary SQLite database at the current Alembic head, starts Uvicorn on `127.0.0.1` with random test keys, verifies the answer-tool schema and visitor grant/revocation over HTTP, then stops the process and deletes the temporary files. It does not inspect or change the configured server database and does not replace a reachable staging deployment, container build, Coze test, or backup/restore drill.
+
 The validator checks API key presence, operator key separation, CORS wildcard risk, database URL profile risk, log level, and log format without connecting to the database and without printing secret values.
 
 For production-like deployment, prefer a managed database. Alembic scaffolding is available as the formal migration path, but the current runtime path is still verified with SQLite until migrations are validated in staging.
@@ -55,6 +57,7 @@ HISTORYGUIDE_CORS_ORIGINS=http://localhost:5173,https://your-historyguide-web.ex
 ```
 
 Leave it empty when the backend is not called directly from a browser.
+For real visitors, do not expose the shared business or operator key in a browser client. The optional local visitor-token gateway is described in `docs/visitor_gateway.md`; it keeps the shared key at the trusted issuer and scopes visitor operations to one short-lived session token. It is off by default and not deployed. A production reverse proxy still needs HTTPS, request-size and rate-limit controls, and audited token delivery. CORS alone is not an authorization boundary. Direct browser access with a disposable business key is limited to isolated staging; see `docs/web_h5_genios_integration.md`.
 
 For deployment beyond local demos, set an API key:
 

@@ -35,6 +35,7 @@ def test_security_status_reports_key_configuration_without_secret_values() -> No
     payload = response.json()
     assert payload["business_api_key_configured"] is False
     assert payload["operator_api_key_configured"] is False
+    assert payload["visitor_gateway_enabled"] is False
     assert payload["business_apis_require_api_key"] is False
     assert payload["operator_apis_require_operator_key"] is False
     assert payload["business_api_key_header"] == API_KEY_HEADER
@@ -68,6 +69,8 @@ def test_access_policy_reports_coarse_boundaries_without_secret_values(monkeypat
     assert policies["public_probe"]["access_level"] == "public"
     assert policies["business_api"]["required_header"] == API_KEY_HEADER
     assert policies["operator_api"]["required_header"] == OPERATOR_API_KEY_HEADER
+    assert policies["visitor_gateway"]["access_level"] == "visitor_token"
+    assert policies["visitor_gateway"]["paths"] == []
     assert "/api/system/access-policy" in policies["operator_api"]["paths"]
     assert "scripts/" in policies["local_operator_workflow"]["path_prefixes"]
     assert "full RBAC" in payload["production_note"]
@@ -82,6 +85,15 @@ def test_api_key_auth_rejects_protected_api_without_key(monkeypatch) -> None:
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Valid HistoryGuide API key is required."}
+
+
+def test_answer_release_requires_business_key(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "settings", Settings(api_key="secret-key"))
+    client = TestClient(main_module.create_app())
+    assert client.get("/openapi-genios-answers.json").status_code == 200
+    response = client.post("/api/genios/answers/history", json={})
+    assert response.status_code == 401
+    assert "secret-key" not in response.text
 
 
 def test_api_key_auth_accepts_protected_api_with_key(monkeypatch) -> None:

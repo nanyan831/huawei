@@ -14,7 +14,7 @@ from app.models.visitor_state import VisitorState
 from app.schemas.genios_context import GeniosHandoffPackage, GeniosReviewRequest
 from app.schemas.review_run import ApprovedEvidenceExcerpt, PrepareRunRequest, ReviewRunRequest
 from app.services.audit_log_service import record_audit_log
-from app.services.evidence_service import exhibit_approval_issue
+from app.services.evidence_service import exhibit_approval_issue, source_publication_issue
 from app.services.genios_context_service import build_genios_handoff_package, review_genios_answer
 
 
@@ -124,6 +124,7 @@ def review_run(
                     "exhibit_id": citation.exhibit_id,
                     "source_id": citation.source_id,
                     "quote_sha256": _sha256(citation.evidence_quote),
+                    "claim_sha256": _sha256(citation.claim_text),
                 }
                 for citation in request.citations
             ],
@@ -134,7 +135,10 @@ def review_run(
     return run
 
 
-def finalize_run(db: Session, run_id: str, *, draft_answer: str) -> ReviewRun:
+def finalize_run(
+    db: Session, run_id: str, *, draft_answer: str,
+    claim_support_review_ids: list[str] | None = None,
+) -> ReviewRun:
     run, visitor_state = _current_run(db, run_id)
     if run.status != "reviewed" or run.decision not in ("pass", "block"):
         raise ValueError("Run has no finalizable review decision.")
@@ -158,7 +162,9 @@ def finalize_run(db: Session, run_id: str, *, draft_answer: str) -> ReviewRun:
         raise ValueError("Review run was already finalized or changed; prepare a new run.")
     record_audit_log(
         db, action="review_run_finalized", resource_type="review_run",
-        resource_id=run.id, details={"decision": run.decision},
+        resource_id=run.id, details={
+            "decision": run.decision, "claim_support_review_ids": claim_support_review_ids or [],
+        },
     )
     db.commit()
     db.refresh(run)
@@ -218,24 +224,50 @@ def _citation_issues(db: Session, request: ReviewRunRequest) -> list[str]:
         return ["At least one approved evidence citation is required."]
     issues: list[str] = []
     covered_ids: set[str] = set()
+    citation_order: list[str] = []
     for citation in request.citations:
         if citation.exhibit_id not in cited_ids:
             issues.append(f"Citation exhibit {citation.exhibit_id} is not in cited_exhibit_ids.")
             continue
+        if citation.exhibit_id not in citation_order:
+            citation_order.append(citation.exhibit_id)
         source = db.get(EvidenceSource, citation.source_id)
         link = db.get(ExhibitEvidenceLink, (citation.exhibit_id, citation.source_id))
-        if source is None or source.status != "approved" or link is None:
+        if source is None or source_publication_issue(source) is not None or link is None:
             issues.append(f"Source {citation.source_id} is not approved and linked to {citation.exhibit_id}.")
             continue
         normalized_quote = _normalized_quote(citation.evidence_quote)
         if len(normalized_quote) < 8 or normalized_quote not in _normalized_quote(source.content_text):
             issues.append(f"Quote for {citation.source_id} is absent from approved source text.")
             continue
+        if _normalized_quote(citation.claim_text) not in normalized_quote:
+            issues.append(f"Claim for {citation.source_id} is not an exact excerpt of its evidence quote.")
+            continue
         covered_ids.add(citation.exhibit_id)
+    if citation_order != cited_ids:
+        issues.append("Citation exhibit order does not match cited_exhibit_ids.")
     for exhibit_id in cited_ids:
         if exhibit_id not in covered_ids:
             issues.append(f"Cited exhibit {exhibit_id} lacks a valid evidence quote.")
+    if _normalized_cited_answer(request.draft_answer) != _normalized_cited_answer(
+        _expected_answer(db, request, cited_ids)
+    ):
+        issues.append("Draft answer contains text without an exact attributed claim or route order.")
     return issues
+
+
+def _expected_answer(db: Session, request: ReviewRunRequest, cited_ids: list[str]) -> str:
+    claims = " ".join(
+        f"{citation.claim_text.strip()}[{citation.source_id}]"
+        for citation in request.citations
+    )
+    if len(cited_ids) <= 1:
+        return claims
+    names = [
+        exhibit.name if (exhibit := db.get(Exhibit, exhibit_id)) else exhibit_id
+        for exhibit_id in cited_ids
+    ]
+    return "建议依次参观：" + " → ".join(names) + "。 " + claims
 
 
 def _linked_sources(db: Session, exhibit_id: str) -> list[EvidenceSource]:
@@ -251,6 +283,10 @@ def _linked_sources(db: Session, exhibit_id: str) -> list[EvidenceSource]:
 
 def _normalized_quote(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _normalized_cited_answer(value: str) -> str:
+    return re.sub(r"\s+\[", "[", _normalized_quote(value))
 
 
 def _sha256(value: str) -> str:

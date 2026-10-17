@@ -30,9 +30,9 @@ def test_adoption_rehearsal_matches_head_and_preserves_source(tmp_path: Path) ->
 
     result = rehearse_legacy_adoption.rehearse_legacy_adoption(source_path)
 
-    assert result.matched_revision == "0005_history_review_runs"
-    assert result.final_revision == "0005_history_review_runs"
-    assert result.preserved_tables == 9
+    assert result.matched_revision == "0008_claim_support_reviews"
+    assert result.final_revision == "0008_claim_support_reviews"
+    assert result.preserved_tables == 11
     assert result.preserved_rows == 1
     assert hashlib.sha256(source_path.read_bytes()).hexdigest() == before
     with sqlite3.connect(source_path) as connection:
@@ -59,7 +59,7 @@ def test_adoption_rehearsal_upgrades_older_unversioned_copy(tmp_path: Path) -> N
     result = rehearse_legacy_adoption.rehearse_legacy_adoption(source_path)
 
     assert result.matched_revision == "0002_audit_logs"
-    assert result.final_revision == "0005_history_review_runs"
+    assert result.final_revision == "0008_claim_support_reviews"
     assert result.preserved_tables == 4
     assert result.preserved_rows == 1
     assert hashlib.sha256(source_path.read_bytes()).hexdigest() == before

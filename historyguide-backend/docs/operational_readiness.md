@@ -151,7 +151,7 @@ Use `docs/web_h5_genios_integration.md` as the recommended Web/H5 and GeniOS cal
 
 Use `docs/genios_handoff_evidence_template.md` to record each GeniOS handoff integration run. It captures request ids, Visitor State evidence, visit-event evidence, grounding completeness, preflight readiness, `source_safety.ready_for_generation`, GeniOS consumption notes, logging evidence, pass criteria, and stop conditions. Use `docs/examples/genios_handoff_evidence.example.md` only as placeholder formatting guidance, not as proof that staging or the museum environment has been validated.
 
-Use `docs/web_h5_integration_checklist.md` as the Web/H5 acceptance checklist before browser integration or museum demo runs. It covers CORS, API key headers, request id evidence, Visitor State session creation, exhibit scan events, source reports, GeniOS handoff gates, `grounding_sources_complete`, and stop conditions.
+Use `docs/web_h5_integration_checklist.md` as the Web/H5 acceptance checklist before browser integration or museum demo runs. It covers CORS, server-side API key handling, request id evidence, Visitor State session creation, exhibit scan events, source reports, GeniOS handoff gates, mandatory finalization, and stop conditions.
 
 Use `docs/real_exhibit_seed_review.md` before importing real museum exhibit records. It covers source packages, manual review, dry-run, backup, import, post-import source and quality reports, and GeniOS grounding checks.
 
@@ -305,7 +305,7 @@ Security:
 
 - Leave `HISTORYGUIDE_API_KEY` empty only for local demos or trusted private networks.
 - Set `HISTORYGUIDE_API_KEY` for shared, public, or production-like deployments.
-- Pass `X-HistoryGuide-Api-Key` from GeniOS and Web/H5 clients when API key protection is enabled.
+- Pass `X-HistoryGuide-Api-Key` from GeniOS and the trusted visitor gateway when API key protection is enabled; never put the shared key in visitor code.
 - Set `HISTORYGUIDE_OPERATOR_API_KEY` for shared or production-like deployments that expose audit logs or operational alerts.
 - Pass `X-HistoryGuide-Operator-Key` only from trusted operator tooling.
 - Keep `HISTORYGUIDE_OPERATOR_API_KEY` separate from `HISTORYGUIDE_API_KEY`.
@@ -365,8 +365,8 @@ Web/H5 integration:
 
 - Configure `HISTORYGUIDE_CORS_ORIGINS` with explicit frontend origins.
 - Keep CORS empty when no browser client needs direct backend access.
-- Send `X-HistoryGuide-Api-Key` from Web/H5 when API key protection is enabled.
+- Send `X-HistoryGuide-Api-Key` from the trusted visitor gateway when API key protection is enabled; do not expose it to Web/H5 JavaScript.
 - Preserve returned `X-HistoryGuide-Request-Id` values in Web/H5 logs for backend correlation.
 - Use `POST /api/visitor-states/{session_id}/visit-events` for QR scans or exhibit-entry events.
-- Check `source_safety.ready_for_generation=true` and `grounding_sources_complete=true` before displaying GeniOS generated explanation.
+- Check `source_safety.ready_for_generation=true` and `grounding_sources_complete=true` before drafting; display only the applicable review-run `finalize.answer` after successful finalization.
 - Stop integration when exhibit ids are missing, source references are empty, or GeniOS handoff source-safety checks fail.

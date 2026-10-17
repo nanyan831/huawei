@@ -19,6 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.core.config import Settings
+from app.core.evidence_fingerprint import source_approval_fingerprint
 
 
 ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
@@ -34,6 +35,8 @@ EXPECTED_TABLES = frozenset(
         "exhibits",
         "visitor_states",
         "visitor_visit_events",
+        "visitor_access_grants",
+        "claim_support_reviews",
     }
 )
 
@@ -226,7 +229,7 @@ def _required_source_checks(connection, source_ids: tuple[str, ...]) -> list[Dat
     for source_id in source_ids:
         row = connection.execute(
             text(
-                "select title, source_uri, content_text, content_sha256, status, "
+                "select title, source_uri, content_text, content_sha256, approved_fingerprint, status, "
                 "reviewed_by, reviewed_at from evidence_sources where id = :source_id"
             ),
             {"source_id": source_id},
@@ -238,14 +241,24 @@ def _required_source_checks(connection, source_ids: tuple[str, ...]) -> list[Dat
             continue
         hash_matches = hashlib.sha256(row["content_text"].encode("utf-8")).hexdigest() == row["content_sha256"]
         reviewed = bool(row["reviewed_by"] and row["reviewed_at"])
-        provenance = bool(row["title"].strip() and row["source_uri"].strip())
-        approved = row["status"] == "approved" and not source_id.startswith("fixture-")
-        severity: Severity = "pass" if approved and hash_matches and reviewed and provenance else "fail"
+        provenance = bool(row["title"].strip() and row["source_uri"].strip() and row["content_text"].strip())
+        approved = (
+            row["status"] == "approved"
+            and not source_id.startswith("fixture-")
+            and not row["source_uri"].lower().startswith("fixture:")
+        )
+        fingerprint_matches = row["approved_fingerprint"] == source_approval_fingerprint(
+            source_id, row["title"], row["source_uri"], row["content_sha256"]
+        )
+        severity: Severity = (
+            "pass" if approved and hash_matches and reviewed and provenance and fingerprint_matches else "fail"
+        )
         checks.append(DatabaseValidationCheck(
             f"source_{source_id}",
             severity,
             f"status={row['status']}, hash_matches={hash_matches}, "
-            f"review_recorded={reviewed}, provenance_present={provenance}",
+            f"review_recorded={reviewed}, provenance_present={provenance}, "
+            f"approval_fingerprint_matches={fingerprint_matches}",
         ))
     return checks
 

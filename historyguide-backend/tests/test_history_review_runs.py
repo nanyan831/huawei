@@ -38,7 +38,7 @@ def _prepare(client, source_ids=None):
 
 def _review(client, run_id: str, *, draft: str = DRAFT, citations=None):
     if citations is None:
-        citations = [{"source_id": "S01", "evidence_quote": SOURCE_TEXT}]
+        citations = [{"source_id": "S01", "evidence_quote": SOURCE_TEXT, "claim_text": SOURCE_TEXT}]
     return client.post(
         f"/api/genios/history-runs/{run_id}/review",
         json={"draft_answer": draft, "citations": citations},
@@ -119,7 +119,7 @@ def test_history_review_cannot_reopen_finalized_run(client, db_session) -> None:
             db_session, run_id,
             HistoryReviewRequest(
                 draft_answer=DRAFT,
-                citations=[{"source_id": "S01", "evidence_quote": SOURCE_TEXT}],
+                citations=[{"source_id": "S01", "evidence_quote": SOURCE_TEXT, "claim_text": SOURCE_TEXT}],
             ),
         )
 
@@ -131,13 +131,23 @@ def test_history_run_requires_approved_nonfixture_source(client, db_session) -> 
     approve_source(db_session, "S01", reviewer="museum-reviewer")
     assert _prepare(client).status_code == 201
 
-    _seed_source(db_session, "fixture-history")
+    _seed_source(db_session, "fixture-history", approved=False)
+    with pytest.raises(ValueError, match="fixture evidence"):
+        approve_source(db_session, "fixture-history", reviewer="museum-reviewer")
     assert _prepare(client, ["fixture-history"]).status_code == 409
     assert _prepare(client, ["S01", "S01"]).status_code == 409
     assert client.post(
         "/api/genios/history-runs",
         json={"question": "   ", "source_ids": ["S01"]},
     ).status_code == 409
+
+
+def test_history_prepare_rejects_legacy_approved_source_without_review(client, db_session) -> None:
+    _seed_source(db_session, "legacy-source", approved=False)
+    source = db_session.get(EvidenceSource, "legacy-source")
+    source.status = "approved"
+    db_session.commit()
+    assert _prepare(client, ["legacy-source"]).status_code == 409
 
 
 def test_history_run_revises_missing_or_false_citation(client, db_session) -> None:
@@ -150,17 +160,59 @@ def test_history_run_revises_missing_or_false_citation(client, db_session) -> No
 
     false_quote = _review(
         client, run_id,
-        citations=[{"source_id": "S01", "evidence_quote": "这段话不在审批来源中。"}],
+        citations=[{"source_id": "S01", "evidence_quote": "这段话不在审批来源中。", "claim_text": SOURCE_TEXT}],
     )
     assert false_quote.json()["decision"] == "revise"
     assert "absent from approved source text" in false_quote.json()["issues"]
 
     no_visible_citation = _review(client, run_id, draft="南开大学创办于1919年。")
     assert no_visible_citation.json()["decision"] == "revise"
-    assert "does not cite [S01]" in no_visible_citation.json()["issues"]
+    assert "without an exact attributed claim" in no_visible_citation.json()["issues"]
 
     assert _review(client, run_id).json()["decision"] == "pass"
     assert _finalize(client, run_id).status_code == 200
+
+
+def test_history_run_rejects_unsupported_or_unattributed_claims(client, db_session) -> None:
+    _seed_source(db_session)
+    run_id = _prepare(client).json()["run_id"]
+    unsupported = _review(
+        client, run_id,
+        draft="南开大学正式创办于1920年。[S01]",
+        citations=[{
+            "source_id": "S01",
+            "evidence_quote": SOURCE_TEXT,
+            "claim_text": "南开大学正式创办于1920年。",
+        }],
+    )
+    assert unsupported.json()["decision"] == "revise"
+    assert "not an exact excerpt" in unsupported.json()["issues"]
+    assert _finalize(client, run_id, "南开大学正式创办于1920年。[S01]").status_code == 409
+
+    extra_text = _review(client, run_id, draft=DRAFT + " 另有未核实的展品。")
+    assert extra_text.json()["decision"] == "revise"
+    assert "without an exact attributed claim" in extra_text.json()["issues"]
+
+    missing_claim = _review(
+        client, run_id,
+        citations=[{"source_id": "S01", "evidence_quote": SOURCE_TEXT}],
+    )
+    assert missing_claim.status_code == 422
+
+    assert _review(client, run_id).json()["decision"] == "pass"
+    assert _finalize(client, run_id).status_code == 200
+
+
+@pytest.mark.parametrize("field", ["evidence_quote", "claim_text"])
+def test_history_run_rejects_whitespace_only_citation(client, db_session, field) -> None:
+    _seed_source(db_session)
+    run_id = _prepare(client).json()["run_id"]
+    citation = {"source_id": "S01", "evidence_quote": SOURCE_TEXT, "claim_text": SOURCE_TEXT}
+    citation[field] = "        "
+    response = _review(client, run_id, draft="[S01]", citations=[citation])
+    assert response.status_code == 422
+    assert _finalize(client, run_id, "[S01]").status_code == 409
+    assert _review(client, run_id).json()["decision"] == "pass"
 
 
 def test_history_run_invalidates_revoked_or_changed_source(client, db_session) -> None:
@@ -177,6 +229,15 @@ def test_history_run_invalidates_revoked_or_changed_source(client, db_session) -
     assert _review(client, second_run).status_code == 409
 
 
+def test_history_prepare_rejects_unreviewed_source_metadata_change(client, db_session) -> None:
+    _seed_source(db_session)
+    assert _prepare(client).status_code == 201
+    source = db_session.get(EvidenceSource, "S01")
+    source.source_uri = "unreviewed:replacement"
+    db_session.commit()
+    assert _prepare(client).status_code == 409
+
+
 def test_history_run_expiry_and_missing_run(client, db_session) -> None:
     _seed_source(db_session)
     run_id = _prepare(client).json()["run_id"]
@@ -185,3 +246,28 @@ def test_history_run_expiry_and_missing_run(client, db_session) -> None:
     db_session.commit()
     assert _review(client, run_id).status_code == 409
     assert _review(client, "missing-run").status_code == 404
+
+
+def test_single_call_history_release_returns_only_final_answer(client, db_session) -> None:
+    _seed_source(db_session)
+    payload = {
+        "question": QUESTION,
+        "source_ids": ["S01"],
+        "draft_answer": DRAFT,
+        "citations": [{
+            "source_id": "S01", "evidence_quote": SOURCE_TEXT, "claim_text": SOURCE_TEXT,
+        }],
+    }
+    released = client.post("/api/genios/answers/history", json=payload)
+    assert released.status_code == 200
+    assert released.json()["decision"] == "pass"
+    assert released.json()["answer"] == DRAFT
+    assert released.json()["semantic_verified"] is False
+    assert db_session.get(HistoryReviewRun, released.json()["run_id"]).status == "finalized"
+
+    payload["draft_answer"] = "南开大学正式创办于1920年。[S01]"
+    payload["citations"][0]["claim_text"] = "南开大学正式创办于1920年。"
+    rejected = client.post("/api/genios/answers/history", json=payload)
+    assert rejected.status_code == 409
+    assert "1920" not in rejected.text
+    assert "answer" not in rejected.json()

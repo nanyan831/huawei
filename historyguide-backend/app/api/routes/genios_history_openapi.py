@@ -26,8 +26,9 @@ def read_genios_history_runs_openapi(request: Request) -> dict[str, Any]:
             "title": "NK HistoryGuide General History Review",
             "version": "0.1.0",
             "description": (
-                "Source-attribution checks for history questions without exhibit IDs. "
-                "This service does not semantically verify historical claims. "
+                "Exact-excerpt claim and source-attribution checks for history questions "
+                "without exhibit IDs. Drafts must consist only of cited literal excerpts. "
+                "This service does not independently verify historical truth. "
                 "Import only after backend migration and staging validation."
             ),
         },
@@ -113,10 +114,11 @@ def read_genios_history_runs_openapi(request: Request) -> dict[str, Any]:
                 },
                 "HistoryCitation": {
                     "type": "object",
-                    "required": ["source_id", "evidence_quote"],
+                    "required": ["source_id", "evidence_quote", "claim_text"],
                     "properties": {
                         "source_id": {"type": "string"},
                         "evidence_quote": {"type": "string", "minLength": 8, "maxLength": 800},
+                        "claim_text": {"type": "string", "minLength": 8, "maxLength": 800},
                     },
                 },
                 "HistoryReviewRequest": {

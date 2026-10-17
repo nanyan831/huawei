@@ -28,7 +28,7 @@ from app.services.visitor_state_service import create_visitor_state
 
 SESSION_ID = "run-session"
 EXHIBIT_ID = "run-exhibit"
-DRAFT = "请参观经过核验的展品。"
+DRAFT = "Reviewed source text.[run-source]"
 
 
 def _seed(db: Session) -> None:
@@ -97,6 +97,7 @@ def _review(client, run_id: str, draft: str = DRAFT):
                 "exhibit_id": EXHIBIT_ID,
                 "source_id": "run-source",
                 "evidence_quote": "Reviewed source text.",
+                "claim_text": "Reviewed source text.",
             }],
         },
     )
@@ -169,6 +170,7 @@ def test_review_cannot_reopen_finalized_run(client, db_session: Session) -> None
                     "exhibit_id": EXHIBIT_ID,
                     "source_id": "run-source",
                     "evidence_quote": "Reviewed source text.",
+                    "claim_text": "Reviewed source text.",
                 }],
             ),
         )
@@ -248,6 +250,7 @@ def test_review_run_requires_approved_source_quote(client, db_session: Session) 
                 "exhibit_id": EXHIBIT_ID,
                 "source_id": "run-source",
                 "evidence_quote": "This sentence is not in the source.",
+                "claim_text": "This sentence is not in the source.",
             }],
         },
     )
@@ -264,12 +267,135 @@ def test_review_run_requires_approved_source_quote(client, db_session: Session) 
                 "exhibit_id": EXHIBIT_ID,
                 "source_id": "run-source",
                 "evidence_quote": "          ",
+                "claim_text": "Reviewed source text.",
             }],
         },
     )
-    assert whitespace_quote.status_code == 200
-    assert whitespace_quote.json()["decision"] == "revise"
+    assert whitespace_quote.status_code == 422
     assert _finalize(client, run_id).status_code == 409
+
+
+def test_review_run_rejects_whitespace_only_claim(client, db_session: Session) -> None:
+    _seed(db_session)
+    run_id = _prepare(client)
+    response = client.post(
+        f"/api/genios/runs/{run_id}/review",
+        json={
+            "draft_answer": "[run-source]",
+            "cited_exhibit_ids": EXHIBIT_ID,
+            "citations": [{
+                "exhibit_id": EXHIBIT_ID,
+                "source_id": "run-source",
+                "evidence_quote": "Reviewed source text.",
+                "claim_text": "        ",
+            }],
+        },
+    )
+    assert response.status_code == 422
+    assert _finalize(client, run_id, "[run-source]").status_code == 409
+
+
+def test_review_run_rejects_unsupported_or_extra_exhibit_claims(client, db_session: Session) -> None:
+    _seed(db_session)
+    run_id = _prepare(client)
+    citation = {
+        "exhibit_id": EXHIBIT_ID,
+        "source_id": "run-source",
+        "evidence_quote": "Reviewed source text.",
+        "claim_text": "Invented source text.",
+    }
+    unsupported = client.post(
+        f"/api/genios/runs/{run_id}/review",
+        json={
+            "draft_answer": "Invented source text.[run-source]",
+            "cited_exhibit_ids": EXHIBIT_ID,
+            "citations": [citation],
+        },
+    )
+    assert unsupported.status_code == 200
+    assert unsupported.json()["decision"] == "revise"
+    assert "not an exact excerpt" in unsupported.json()["issues"]
+    assert _finalize(client, run_id, "Invented source text.[run-source]").status_code == 409
+
+    citation["claim_text"] = "Reviewed source text."
+    extra = client.post(
+        f"/api/genios/runs/{run_id}/review",
+        json={
+            "draft_answer": DRAFT + " An unsupported fact.",
+            "cited_exhibit_ids": EXHIBIT_ID,
+            "citations": [citation],
+        },
+    )
+    assert extra.json()["decision"] == "revise"
+    assert "without an exact attributed claim" in extra.json()["issues"]
+
+    citation.pop("claim_text")
+    missing_claim = client.post(
+        f"/api/genios/runs/{run_id}/review",
+        json={"draft_answer": DRAFT, "cited_exhibit_ids": EXHIBIT_ID, "citations": [citation]},
+    )
+    assert missing_claim.status_code == 422
+    assert _review(client, run_id).json()["decision"] == "pass"
+
+
+def test_review_run_binds_multi_exhibit_answer_to_route_order(client, db_session: Session) -> None:
+    _seed(db_session)
+    route_ids = ["run-exhibit-2", "run-exhibit-3"]
+    route_names = ["Second Exhibit", "Third Exhibit"]
+    for exhibit_id, name, importance in zip(route_ids, route_names, [4, 3]):
+        create_exhibit(
+            db_session,
+            ExhibitCreate(
+                id=exhibit_id, name=name, description="Reviewed route exhibit.",
+                period="test-period", keywords=["history"], importance=importance,
+                people=[], time_range=None, themes=["history"],
+                source_reference="Museum archive record 1.",
+            ),
+        )
+        link_source(db_session, exhibit_id, "run-source")
+        approve_exhibit(db_session, exhibit_id, reviewer="museum-reviewer")
+
+    prepared = client.post("/api/genios/runs", json={"session_id": SESSION_ID})
+    assert prepared.status_code == 201
+    run_id = prepared.json()["run_id"]
+    assert [item["exhibit_id"] for item in prepared.json()["handoff"]["route_plan"]["items"]] == route_ids
+    citations = [
+        {
+            "exhibit_id": exhibit_id,
+            "source_id": "run-source",
+            "evidence_quote": "Reviewed source text.",
+            "claim_text": "Reviewed source text.",
+        }
+        for exhibit_id in route_ids
+    ]
+    draft = (
+        "建议依次参观：Second Exhibit → Third Exhibit。 "
+        "Reviewed source text.[run-source] Reviewed source text.[run-source]"
+    )
+    reversed_order = client.post(
+        f"/api/genios/runs/{run_id}/review",
+        json={
+            "draft_answer": draft,
+            "cited_exhibit_ids": ",".join(reversed(route_ids)),
+            "citations": list(reversed(citations)),
+        },
+    )
+    assert reversed_order.json()["decision"] == "revise"
+    assert "route order" in reversed_order.json()["issues"]
+
+    reviewed = client.post(
+        f"/api/genios/runs/{run_id}/review",
+        json={
+            "draft_answer": draft,
+            "cited_exhibit_ids": ",".join(route_ids),
+            "citations": citations,
+        },
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["decision"] == "pass"
+    final = client.post(f"/api/genios/runs/{run_id}/finalize", json={"draft_answer": draft})
+    assert final.status_code == 200
+    assert final.json()["answer"] == draft
 
 
 def test_review_run_rejects_unlinked_source(client, db_session: Session) -> None:
@@ -292,6 +418,7 @@ def test_review_run_rejects_unlinked_source(client, db_session: Session) -> None
                 "exhibit_id": EXHIBIT_ID,
                 "source_id": "other-source",
                 "evidence_quote": "Some unrelated approved text.",
+                "claim_text": "Some unrelated approved text.",
             }],
         },
     )
@@ -305,6 +432,58 @@ def test_review_run_missing_session_and_run(client) -> None:
     assert response.status_code == 404
     response = _review(client, "absent-run")
     assert response.status_code == 404
+
+
+def test_single_call_exhibit_release_returns_only_final_answer(client, db_session: Session) -> None:
+    _seed(db_session)
+    payload = {
+        "session_id": SESSION_ID,
+        "draft_answer": DRAFT,
+        "cited_exhibit_ids": EXHIBIT_ID,
+        "citations": [{
+            "exhibit_id": EXHIBIT_ID,
+            "source_id": "run-source",
+            "evidence_quote": "Reviewed source text.",
+            "claim_text": "Reviewed source text.",
+        }],
+    }
+    released = client.post("/api/genios/answers/exhibit", json=payload)
+    assert released.status_code == 200
+    assert released.json()["decision"] == "pass"
+    assert released.json()["answer"] == DRAFT
+    assert db_session.get(ReviewRun, released.json()["run_id"]).status == "finalized"
+
+    payload["citations"][0]["evidence_quote"] = "No matching approved text."
+    rejected = client.post("/api/genios/answers/exhibit", json=payload)
+    assert rejected.status_code == 409
+    assert DRAFT not in rejected.text
+    assert "answer" not in rejected.json()
+
+    payload["session_id"] = "absent"
+    assert client.post("/api/genios/answers/exhibit", json=payload).status_code == 404
+
+
+def test_single_call_exhibit_release_blocks_revoked_evidence(client, db_session: Session) -> None:
+    _seed(db_session)
+    revoke_source(db_session, "run-source", reviewer="museum-reviewer")
+    response = client.post(
+        "/api/genios/answers/exhibit",
+        json={
+            "session_id": SESSION_ID,
+            "draft_answer": DRAFT,
+            "cited_exhibit_ids": EXHIBIT_ID,
+            "citations": [{
+                "exhibit_id": EXHIBIT_ID,
+                "source_id": "run-source",
+                "evidence_quote": "Reviewed source text.",
+                "claim_text": "Reviewed source text.",
+            }],
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["decision"] == "block"
+    assert response.json()["answer"] != DRAFT
+    assert DRAFT not in response.text
 
 
 def test_review_run_stats_are_operator_only_and_do_not_expose_drafts(

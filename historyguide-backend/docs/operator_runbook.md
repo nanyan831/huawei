@@ -156,11 +156,11 @@ docs/web_h5_integration_checklist.md
 Confirm:
 
 - `HISTORYGUIDE_CORS_ORIGINS` includes the intended browser origin
-- `X-HistoryGuide-Api-Key` is sent when API key protection is enabled
+- the trusted visitor gateway holds and sends `X-HistoryGuide-Api-Key` when enabled; the browser never holds it
 - `X-HistoryGuide-Request-Id` is preserved by Web/H5 logs
 - one physical visit uses one stable `session_id`
 - QR scans or exhibit-entry events call `POST /api/visitor-states/{session_id}/visit-events`
-- source-safety checks pass before showing GeniOS generated explanation
+- source-safety checks pass before drafting, and only the review-run `finalize.answer` is shown
 
 ## 8. GeniOS Handoff Gate
 

@@ -47,3 +47,31 @@
 - 无馆员试用签收、访客 Web/H5 真实接线验收及运维责任人签收。
 
 本轮本机工程回归与依赖锁证据已收齐；下一步是在 Docker daemon 可用的独立环境构建镜像并记录摘要。资料与 Coze 权限到齐后再按 `PROJECT_ROADMAP.md` 逐阶段收集目标环境证据。当前可试用本地工作人员流程，不能宣布上线或项目验收完成。
+
+## 2026-10-16 另一工作区复验
+
+- 当前工作区 `C:\Users\11329\Desktop\华为杯校史馆` 的 `main` 已快进到 `7d98e51`，与获取后的 `origin/main` 一致。以下结果对应这个提交和随后仅修改文档的工作区，不代表服务器部署。
+- `.venv\Scripts\python.exe --version` 为 Python 3.12.14；`.venv\Scripts\python.exe -m pytest -o addopts= -q` 退出码 0，`263 passed, 2 warnings in 6.61s`。警告来自 FastAPI/Starlette 的第三方弃用接口。
+- `tests/browser` 下 `npm.cmd ci` 退出码 0，`npm.cmd test` 退出码 0，`13/13` 浏览器检查通过。测试自建回环服务、随机 SQLite 文件和临时测试密钥；未连接生产环境。
+- `docker version` 无法执行，因为当前 PowerShell 找不到 `docker` 命令；本轮镜像构建、摘要和容器内回归仍未验证。
+- Web/H5、部署和运维文档已澄清：访客浏览器不可持有共享业务/操作员 Key，Handoff 仅作预检，只有 review-run 的 `finalize.answer` 可展示。服务端访客网关和 Coze 强制出口尚未实现或部署，工程与发布结论不变：**NO-GO**。
+
+## 2026-10-17 一般校史逐字主张门禁
+
+- `HistoryCitation` 新增必填 `claim_text`；review 要求它是已审批 `evidence_quote` 的逐字片段，且草稿只由这些片段和对应 `[source_id]` 组成。新增 1920/1919 错配、额外未引用句、缺失字段回归。对应 Coze OpenAPI 契约已更新，本地全量 `pytest -o addopts= -q` 退出码 0：`264 passed, 2 warnings`。
+- 这使一般校史输出暂时限制为摘录式回答，不等于语义蕴含、史实真伪或馆方签字验收。当前已导入 Coze 的插件不自动更新；本轮未重新导入、未部署服务器、未接入强制最终出口。仍为 **NO-GO**。
+
+## 2026-10-17 单次审核放行工具
+
+- 新增受业务密钥保护的 `/api/genios/answers/history`、`/api/genios/answers/exhibit` 及双操作 OpenAPI 文档。后端内部串行执行 prepare/review/finalize，仅返回放行答案或安全阻断；revise 返回 409 且不回显草稿。局部回归覆盖通过、拒绝错误年份、拒绝错误展品摘录、撤销来源后阻断、无 Key 为 401、OpenAPI 契约。
+- 该工具不是浏览器可直连的无密钥访客网关，不能强迫 Coze 调用，也没有改变现有三步接口。正式上线仍需独立访客身份/会话、限流、服务端持钥、Coze 强制展示路径及真实平台轨迹。当前工作区全量 `pytest -o addopts= -q` 为 `269 passed, 2 warnings`；馆员浏览器测试 `13/13` 通过，`git diff --check` 通过。尚未部署或导入 Coze，仍为 **NO-GO**。
+
+## 2026-10-17 展品逐字主张与路线顺序
+
+- 新 run 的 `EvidenceCitation` 也要求必填 `claim_text`，且必须是获批来源摘录中的逐字片段。草稿仅可由这些片段及 `[source_id]` 组成；引用多个展品时可加由后端展品名和路线顺序校验的固定前缀。错误主张、额外讲解和倒序均触发 `revise`。
+- 旧 `/api/genios/review` 与 Handoff 兼容接口仍属结构化预检，不能替代 run/finalize。逐字约束会限制自由讲解；它不是史实语义、上下文充分性或来源可信度验证。当前全量 Python 回归 `271 passed, 2 warnings`，馆员浏览器 `13/13` 通过，`git diff --check` 通过。Coze 插件未更新，线上仍未接线，发布门禁维持 **NO-GO**。
+
+## 2026-10-17 访客令牌网关本机回归
+
+- 默认关闭的 `/api/visitor` 网关在隔离测试库中验证了可信业务 Key 签发、独立 HMAC 签名令牌、会话绑定、过期/篡改拒绝、已审批展品与路线过滤、访客事件、两类审核答案及未审批候选导致的安全阻断。它不创建公开会话，也不调用 Coze 模型。
+- 当前工作区全量 `pytest -o addopts= -q` 退出码 0：`277 passed, 2 warnings`。馆员浏览器 `13/13`，`git diff --check` 退出码 0。本机测试不证明 HTTPS、代理限流、令牌交付、线上密钥轮换或平台最终出口。网关未在 staging/production 启用，仍为 **NO-GO**。

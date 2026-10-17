@@ -20,6 +20,7 @@ def test_validate_runtime_config_accepts_hardened_staging_settings(monkeypatch, 
     monkeypatch.setenv("HISTORYGUIDE_DATABASE_URL", "postgresql://example.invalid/historyguide")
     monkeypatch.setenv("HISTORYGUIDE_SCHEMA_MODE", "migrated")
     monkeypatch.setenv("HISTORYGUIDE_LOG_FORMAT", "json")
+    monkeypatch.setenv("HISTORYGUIDE_CLAIM_SUPPORT_REQUIRED", "true")
 
     exit_code = validate_runtime_config.main(["--profile", "staging"])
 
@@ -76,3 +77,26 @@ def test_shared_runtime_requires_migrated_schema_mode() -> None:
         Settings(schema_mode="auto_create"), profile="staging"
     )
     assert any(check.name == "schema_mode" and check.severity == "fail" for check in checks)
+
+
+def test_visitor_gateway_config_requires_separate_key_and_valid_ttl() -> None:
+    for settings in (
+        Settings(visitor_gateway_enabled=True, api_key="business"),
+        Settings(visitor_gateway_enabled=True, api_key="business", visitor_signing_key="business"),
+        Settings(visitor_gateway_enabled=True, api_key="business", visitor_signing_key="too-short"),
+        Settings(
+            visitor_gateway_enabled=True, api_key="business", visitor_signing_key="visitor",
+            visitor_token_ttl_minutes=999,
+        ),
+    ):
+        checks = validate_runtime_config.validate_runtime_config(settings, profile="staging")
+        assert any(check.name == "visitor_gateway" and check.severity == "fail" for check in checks)
+
+    checks = validate_runtime_config.validate_runtime_config(
+        Settings(
+            visitor_gateway_enabled=True, api_key="business",
+            visitor_signing_key="separate-visitor-signing-key-0123456789",
+        ),
+        profile="staging",
+    )
+    assert any(check.name == "visitor_gateway" and check.severity == "warn" for check in checks)

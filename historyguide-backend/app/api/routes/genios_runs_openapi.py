@@ -145,11 +145,12 @@ def read_genios_runs_openapi(request: Request) -> dict[str, Any]:
                 },
                 "EvidenceCitation": {
                     "type": "object",
-                    "required": ["exhibit_id", "source_id", "evidence_quote"],
+                    "required": ["exhibit_id", "source_id", "evidence_quote", "claim_text"],
                     "properties": {
                         "exhibit_id": {"type": "string"},
                         "source_id": {"type": "string"},
                         "evidence_quote": {"type": "string", "minLength": 8, "maxLength": 800},
+                        "claim_text": {"type": "string", "minLength": 8, "maxLength": 800},
                     },
                 },
                 "ReviewRunRequest": {

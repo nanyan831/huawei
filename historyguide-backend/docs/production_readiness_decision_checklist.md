@@ -221,7 +221,7 @@ GET /api/genios/preflight/{session_id}
 GET /api/genios/handoff/{session_id}
 ```
 
-Proceed with generated explanation display only when:
+The following are necessary preflight checks, not permission to display a draft:
 
 - `grounding_sources_complete=true`
 - `source_safety.ready_for_generation=true`
@@ -230,6 +230,8 @@ Proceed with generated explanation display only when:
 - preflight `ready_for_handoff=true`
 - `docs/genios_handoff_evidence_template.md` is completed for the run
 
+For an exhibit/route answer, additionally require a successful `/api/genios/runs` prepare -> review -> finalize sequence. For general history, require the corresponding `/api/genios/history-runs` sequence. The visitor must see only the matching `finalize.answer`, enforced by a workflow or trusted gateway. Current live Handoff alone does not satisfy this gate.
+
 Block generated explanation display when:
 
 - `grounding_sources_complete=false`
@@ -237,8 +239,9 @@ Block generated explanation display when:
 - any grounding exhibit is unsourced
 - any referenced exhibit id is missing
 - request ids cannot be correlated across Web/H5, GeniOS, backend logs, and operator notes
+- review/finalize was skipped, failed, timed out, rejected a stale snapshot, or returned a different draft
 
-This gate checks backend handoff data only. It does not define GeniOS prompts, does not run RAG, and does not judge generated historical prose.
+This gate checks backend preflight and final-answer control. It does not itself judge whether every historical claim is supported by its source; curator review and claim-level evaluation remain required.
 
 ## Gate 7: Monitoring And Incident Preparedness
 

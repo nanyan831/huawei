@@ -1,6 +1,6 @@
 # Web/H5 And GeniOS Integration Sequence
 
-This document describes the recommended integration sequence for a real NK HistoryGuide museum visit. It is a backend integration guide only. The backend does not generate explanation text, and this document does not define a frontend UI, a GeniOS prompt, RAG retrieval logic, digital humans, AR, or VR.
+This document describes the visit-state and structured-data integration sequence. Its legacy Handoff examples are not a visitor-facing answer workflow. The backend does not generate explanation text, and this document does not define a frontend UI, a GeniOS prompt, RAG retrieval logic, digital humans, AR, or VR. The required answer-review workflow is in `docs/agent_architecture_2026.md` and `docs/coze_agent_run_workflow.md`; it is not deployed yet.
 
 ## Integration Boundary
 
@@ -25,12 +25,12 @@ Web/H5 provides:
 
 - QR scan or exhibit selection entry
 - visitor type and interest collection
-- API calls to the backend and GeniOS
-- display of exhibit metadata, route hints, and generated GeniOS output
+- calls to a trusted server-side gateway for protected backend and GeniOS operations
+- display of exhibit metadata, route hints, and only a finalized generated answer
 
 ## Required Runtime Settings
 
-Before Web/H5 calls the backend directly from a browser, configure explicit CORS origins:
+For a local or isolated staging browser test that calls the backend directly, configure explicit CORS origins:
 
 ```text
 HISTORYGUIDE_CORS_ORIGINS=http://localhost:5173,https://your-h5-origin.example
@@ -42,11 +42,13 @@ For shared, public, or production-like deployments, configure:
 HISTORYGUIDE_API_KEY=<strong-shared-backend-key>
 ```
 
-When `HISTORYGUIDE_API_KEY` is set, Web/H5 and GeniOS callers must send:
+When `HISTORYGUIDE_API_KEY` is set, the trusted gateway and GeniOS integration must send:
 
 ```http
 X-HistoryGuide-Api-Key: <configured-api-key>
 ```
+
+Never embed this shared key or the operator key in visitor JavaScript, HTML, browser storage, QR codes, or a public mobile app. The optional local gateway in `docs/visitor_gateway.md` provides short-lived session-bound visitor tokens, approved exhibit/route reads, visit events, and reviewed-answer release without exposing the business key to the browser. A trusted service must first create the session and grant the token; the gateway does not yet call Coze or implement production reverse-proxy rate limiting. CORS restricts browser origins but does not protect a shared secret. A direct-browser staging test may use only a disposable, isolated test key; it is not a production architecture.
 
 For log correlation, Web/H5 and GeniOS callers may also send:
 
@@ -82,7 +84,7 @@ Do not start generated historical explanation if source reports show unresolved 
 
 ### 1. Start A Visit Session
 
-When a visitor enters the experience, Web/H5 creates one Visitor State session:
+When a visitor enters the experience, the trusted gateway creates one Visitor State session on behalf of Web/H5:
 
 ```http
 POST /api/visitor-states
@@ -105,7 +107,7 @@ Use one `session_id` for the whole physical visit. Do not create a new session f
 
 ### 2. Record QR Scan Or Exhibit Entry
 
-When the visitor scans an exhibit QR code or enters an exhibit zone, Web/H5 records a visit event:
+When the visitor scans an exhibit QR code or enters an exhibit zone, the gateway records a visit event:
 
 ```http
 POST /api/visitor-states/{session_id}/visit-events
@@ -171,9 +173,9 @@ GET /api/genios/preflight/{session_id}?recommendation_limit=3
 
 Treat failed checks as blockers for generated explanation. Warnings mean the session can continue, but GeniOS should adapt the experience. For example, no visit-event timeline means there may be less visit continuity.
 
-### 7. Use Handoff For One-Call GeniOS Integration
+### 7. Use Handoff For Structured Preflight
 
-For the normal GeniOS integration path, prefer:
+For structured visit context, an integration may call:
 
 ```http
 GET /api/genios/handoff/{session_id}?recommendation_limit=3&route_max_items=5
@@ -190,18 +192,20 @@ The handoff response contains:
 
 See `docs/api_contract.md` for a complete non-historical fixture handoff response example.
 
-GeniOS should check:
+GeniOS should check this preflight signal:
 
 ```text
 source_safety.ready_for_generation == true
 ```
 
-before generated explanation. If it is `false`, inspect:
+before drafting an explanation. It does not authorize displaying that draft. If it is `false`, inspect:
 
 - `source_safety.blocking_check_names`
 - `source_safety.unsourced_exhibit_ids`
 - `source_safety.missing_exhibit_ids`
 - `preflight.checks`
+
+For visitor-facing exhibit or route answers, the trusted integration must use `POST /api/genios/runs`, `POST /api/genios/runs/{run_id}/review`, and `POST /api/genios/runs/{run_id}/finalize` in that order. General history answers use the separate `/api/genios/history-runs` path. The gateway or a mandatory Coze workflow must make the matching `finalize` response's `answer` the only displayed generated answer. On a block, stale snapshot, `401`, `409`, timeout, or tool failure, display only the safe fallback. A prompt instruction or `ready_for_generation=true` alone is insufficient.
 
 ### 8. Continue The Visit
 
@@ -209,8 +213,9 @@ For each new scan or exhibit entry:
 
 1. `POST /api/visitor-states/{session_id}/visit-events`
 2. `GET /api/genios/handoff/{session_id}`
-3. GeniOS performs RAG and generated explanation only if `source_safety.ready_for_generation` is `true`
-4. Web/H5 displays GeniOS output and structured route hints
+3. GeniOS drafts with approved sources only if `source_safety.ready_for_generation` is `true`
+4. The trusted integration reviews and finalizes the exact draft through the appropriate run path
+5. Web/H5 displays only the finalized `answer` and structured route hints
 
 If the visitor changes interests or remaining time without scanning a new exhibit, update the session:
 
@@ -226,16 +231,16 @@ At the end of the visit, request:
 GET /api/visits/{session_id}/summary
 ```
 
-This returns structured recap input, including visited exhibits and visit-event timeline data. GeniOS may use it with verified RAG sources to generate a natural-language recap.
+This returns structured recap input, including visited exhibits and visit-event timeline data. GeniOS may use it with approved RAG sources to draft a natural-language recap. Do not display a generated historical recap without the applicable review and finalize path.
 
 ## Minimal Happy Path
 
 ```text
 POST /api/visitor-states
 POST /api/visitor-states/{session_id}/visit-events
-GET /api/genios/handoff/{session_id}
-GeniOS checks source_safety.ready_for_generation
-GeniOS performs RAG and generated explanation
+GET /api/genios/handoff/{session_id} (structured preflight only)
+POST /api/genios/runs -> review -> finalize (exhibit/route answer)
+Display only finalize.answer; fail closed on any review/finalize failure
 GET /api/visit-routes/{session_id}/plan
 GET /api/visits/{session_id}/summary
 ```
@@ -268,8 +273,9 @@ Visitor State integrity failure:
 
 - Keep one `session_id` for one physical visit.
 - Record physical exhibit movement through visit events.
-- Use handoff as the default GeniOS integration endpoint.
-- Require `source_safety.ready_for_generation=true` before GeniOS generated explanation.
+- Use handoff for structured visit context, not as the final answer gate.
+- Require `source_safety.ready_for_generation=true` before drafting an exhibit explanation; require a successful finalize before display.
+- Keep shared business and operator keys out of visitor clients; use a trusted server-side gateway.
 - Use verified museum data with non-empty `source_reference`.
 - Do not make the backend generate explanation text.
 - Do not extend this backend into a general Nankai history chatbot.
