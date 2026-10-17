@@ -28,7 +28,33 @@ jobs:
           .venv/bin/python -m pip install --require-hashes -r requirements-dev.lock
           .venv/bin/python -m pip check
       - name: Run backend tests
-        run: .venv/bin/python -m pytest -o addopts= -q
+        run: |
+          set +e
+          .venv/bin/python -m pytest -o addopts= -q --junitxml=.pytest-report.xml
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            .venv/bin/python - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          report = Path(".pytest-report.xml")
+          if report.exists():
+              failures = []
+              for case in ET.parse(report).iterfind(".//testcase"):
+                  failure = case.find("failure") or case.find("error")
+                  if failure is not None:
+                      failures.append((case, failure))
+              for case, failure in failures[:20]:
+                  path = case.get("file", "historyguide-backend/tests")
+                  line = case.get("line", "1")
+                  name = f"{case.get('classname', '')}.{case.get('name', 'pytest failure')}"
+                  detail = (failure.get("message") or (failure.text or "")).strip().splitlines()[0]
+                  message = f"{name}: {detail}".replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                  print(f"::error file={path},line={line},title=pytest::{message}")
+          PY
+          fi
+          exit "$status"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
